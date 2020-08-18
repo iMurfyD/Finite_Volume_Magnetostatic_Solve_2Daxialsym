@@ -19,18 +19,19 @@ H0 = [0 477]'; % A/m
 
 %% Define what stuff to plot
 four_plots = 0;
-interp_match_du_paper = 1;
+interp_match_du_paper = 1   ;
 perm_map_debug=0;
 spy_mat = 0;
-hy_trifold = 0;
-hx_trifold = 0;
+hy_trifold = 1;
+hx_trifold = 1;
 hx_trifold_no_normalization =1;
-hy_trifold_no_normalization=1;
-hmag=0;
+hy_trifold_no_normalization=0;
+phi_trifold=1;
+hmag=1;
 
 %% Set up the grid (n x m 2D grid)
-n = 150;
-m = 150;
+n = 1000;
+m = 1000;
 xdom = linspace(-5*a, 5*a, n);
 ydom = linspace(-5*a, 5*a, m);
 dx = xdom(2)-xdom(1);
@@ -38,59 +39,53 @@ dy = ydom(2)-ydom(1);
 [XX,YY] = meshgrid(xdom,ydom);
 
 %% Form FV Matrix
-[A,b, perm_map_debug_two_sph] = setup_system(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
-norm(b)
+[A,b, perm_map_debug_two_sph] = setup_system_sparse(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
 if(spy_mat)
 figure;
 spy([A b]);
 title('Two Sphere A Matrix');
 end
-A_sparse = sparse(A);
-u = A_sparse\b;
+u = A\b;
 phi = spread_1D_into_2D(u, m,n);
-[HX, HY] = gradient(phi);
-% H = -grad(phi)
-HX = -HX;
+[HX, HY] = gradient(phi,xdom,ydom);
+% H = -grad(phi), HX is calculated with opposite sign convention I think
+HX = HX;
 HY = -HY;
 
 %% Form FV Matrix and solve for just left sphere
 r2 = r1;
-[A,b, perm_map_debug_left_sph] = setup_system(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
+[A,b, perm_map_debug_left_sph] = setup_system_sparse(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
 
 if(spy_mat)
 figure;
 spy([A b]);
 title('Left Sphere A Matrix');
 end
-A_sparse = sparse(A);
-u = A_sparse\b;
+u = A\b;
 phi_left = spread_1D_into_2D(u, m,n);
-[HX_left, HY_left] = gradient(phi_left);
-% H = -grad(phi)
-HX_left = -HX_left;
+[HX_left, HY_left] = gradient(phi_left,xdom,ydom);
+% H = -grad(phi), HX is calculated with opposite sign convention I think
+HX_left = HX_left;
 HY_left = -HY_left;
 
 %% Form FV Matrix and solve for just right sphere
 r2 = [0 sep/2]';
 r1 = r2;
-[A,b, perm_map_debug_right_sph] = setup_system(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
+[A,b, perm_map_debug_right_sph] = setup_system_sparse(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
 
 if(spy_mat)
 figure;
 spy([A b]);
 title('Right Sphere A Matrix');
 end
-A_sparse = sparse(A);
-u = A_sparse\b;
+u = A\b;
 phi_right = spread_1D_into_2D(u, m,n);
-[HX_right, HY_right] = gradient(phi_right);
-% H = -grad(phi)
-HX_right = -HX_right;
+[HX_right, HY_right] = gradient(phi_right,xdom,ydom);
+% H = -grad(phi), HX is calculated with opposite sign convention I think
+HX_right = HX_right;
 HY_right = -HY_right;
 
-%% Solve for differential in field per Du/Toffletto/Biswal paper
-dHx = HX_right + HX_left - H0(1)*ones(size(HX)) - HX;
-dHy = HY_left + HY_right - H0(2)*ones(size(HY)) - HY;
+
 
 %% Formulate the maxwell stress tensor and integrate force around sphere
 f = [0 0]';
@@ -115,6 +110,7 @@ for ii = 1:m
 end
             
 %% Plot result
+if(phi_trifold)
 figure;
 subplot(1,3,1);
 pc = pcolor(XX/a,YY/a,phi); set(pc, 'EdgeColor', 'none');
@@ -134,32 +130,42 @@ title('\phi (Right Spheres)');
 ylabel('y/a');
 xlabel('x/a');
 colorbar;
+end
 
+%% Hmag
 if(hmag)
 figure;
 subplot(1,3,1);
-pc = pcolor(XX/a,YY/a,abs(-gradient(phi))/norm(H0)); 
-set(pc, 'EdgeColor', 'none');
-title('|H|/|H_0| (Two Spheres)');
-ylabel('y/a');
-xlabel('x/a');
-colorbar;
+absHXHY = sqrt(HX.^2+HY.^2);
+pc = contourf(XX/(2*a),YY/(2*a),absHXHY, 20); 
+% set(pc, 'EdgeColor', 'none');
+title('|H| (Two Spheres)');
+ylabel('y/D');
+xlabel('x/D');
+% rotate(pc, [0 0 1]', 90);
+colorbar; colormap('hot');
+% caxis([350 max(absHXHY,[],'all')]);
 subplot(1,3,2);
-    pc = pcolor(XX/a,YY/a,abs(-gradient(phi_left))/norm(H0)); 
-set(pc, 'EdgeColor', 'none');
-title('|H|/|H_0| (Left Sphere)');
-ylabel('y/a');
-xlabel('x/a');
-colorbar;
+pc = contourf(XX/(2*a),YY/(2*a),sqrt(HX_left.^2+HY_left.^2), 20); 
+% set(pc, 'EdgeColor', 'none');
+title('|H| (Left Sphere)');
+ylabel('y/D');
+xlabel('x/D');
+% rotate(pc, [0 0 1]', 90);
+colorbar; colormap('hot');
+% caxis([350 max(sqrt(HX_left.^2+HY_left.^2),[],'all')]);
 subplot(1,3,3);
-pc = pcolor(XX/a,YY/a,abs(-gradient(phi_right))/norm(H0)); 
-set(pc, 'EdgeColor', 'none');
-title('|H|/|H_0| (Right Sphere)');
-ylabel('y/a');
-xlabel('x/a');
-colorbar;
+pc = contourf(XX/(2*a),YY/(2*a),sqrt(HX_right.^2+HY_right.^2), 20); 
+% set(pc, 'EdgeColor', 'none');
+title('|H| (Right Sphere)');
+ylabel('y/D');
+xlabel('x/D');
+% rotate(pc, [0 0 1]', 90);
+colorbar; colormap('hot');
+% caxis([350 max(sqrt(HX_right.^2+HY_right.^2),[],'all')]);
 end
 
+%% HX Trifold
 if(hx_trifold)
 figure;
 subplot(1,3,1);
@@ -206,24 +212,42 @@ end
 
 if(hx_trifold_no_normalization)
 figure;
-subplot(1,3,1);
-pc = pcolor(XX/a,YY/a,HX); set(pc, 'EdgeColor', 'none');
+subplot(1,4,1);
+pc = pcolor(XX/(2*a),YY/(2*a),HX); set(pc, 'EdgeColor', 'none');
+rotate(pc, [0 0 1]', 90);
 title('H_x (Two Spheres)');
-ylabel('y/a');
-xlabel('x/a');
-colorbar;
-subplot(1,3,2);
-pc = pcolor(XX/a,YY/a,HX_left); set(pc, 'EdgeColor', 'none');
+ylabel('y/D');
+xlabel('x/D');
+xlim([-2/4 0]);
+ylim([0.0 0.5]);
+colorbar; colormap('hot');
+subplot(1,4,2);
+pc = pcolor(XX/(2*a),YY/(2*a),HX_left); set(pc, 'EdgeColor', 'none');
+rotate(pc, [0 0 1]', 90);
 title('H_x (Left Sphere)');
-ylabel('y/a');
-xlabel('x/a');
-colorbar;
-subplot(1,3,3);
-pc = pcolor(XX/a,YY/a,HX_right); set(pc, 'EdgeColor', 'none');
+ylabel('y/D');
+xlabel('x/D');
+xlim([-2/4 0]);
+ylim([0.0 0.5]);
+colorbar; colormap('hot');
+subplot(1,4,3);
+pc = pcolor(XX/(2*a),YY/(2*a),HX_right); set(pc, 'EdgeColor', 'none');
+rotate(pc, [0 0 1]', 90);
 title('H_x (Right Sphere)');
-ylabel('y/a');
-xlabel('x/a');
-colorbar;
+ylabel('y/D');
+xlabel('x/D');
+xlim([-2/4 0]);
+ylim([0.0 0.5]);
+colorbar; colormap('hot');
+subplot(1,4,4);
+pc = pcolor(XX/(2*a),YY/(2*a),HX_right+HX_left-HX); set(pc, 'EdgeColor', 'none');
+rotate(pc, [0 0 1]', 90);
+title('\Delta H_x');
+ylabel('y/D');
+xlabel('x/D');
+xlim([-2/4 0]);
+ylim([0.0 0.5]);
+colorbar; colormap('hot');
 end
 
 if(hy_trifold_no_normalization)
@@ -274,29 +298,32 @@ colorbar;
 end
 
 if(interp_match_du_paper)
+%% Solve for differential in field per Du/Toffletto/Biswal paper
+dHx = HX_right + HX_left - H0(1)*ones(size(HX)) - HX;
+dHy = HY_left + HY_right - H0(2)*ones(size(HY)) - HY;
 figure;
 [xxx, yyy] = meshgrid(linspace(-5*a, 5*a, n*10), linspace(-5*a, 5*a, m*10));
 dHy_interp = interp2(XX, YY, dHy, xxx, yyy, 'cubic');
 dHx_interp = interp2(XX, YY, dHx, xxx, yyy, 'cubic');
 subplot(1,2,1);
-pc = pcolor(xxx./a,yyy./a,dHy_interp); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./(2*a),YY./(2*a),dHy); set(pc, 'EdgeColor', 'none');
 %caxis([-15 10]');
-xlim([-3 3]);
-ylim([-3 3]);
-xlabel('x/a');
-ylabel('y/a');
+xlim([-4/2 4/2]);
+ylim([-3/2 3/2]);
+xlabel('x/D');
+ylabel('y/D');
 rotate(pc, [0 0 1]', 90);
 title('\Delta H_x');
 colorbar; colormap('hot');
 
 subplot(1,2,2);
-pc = pcolor(xxx./a,yyy./a,dHx_interp); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./(2*a),YY./(2*a),dHx); set(pc, 'EdgeColor', 'none');
 %caxis([-10 10]');
 title('\Delta H_y');
-xlim([-3 3]);
-ylim([-3 3]);
-xlabel('x/a');
-ylabel('y/a');
+xlim([-4/2 4/2]);
+ylim([-3/2 3/2]);
+xlabel('x/D');
+ylabel('y/D');
 rotate(pc, [0 0 1]', 90);
 colorbar; colormap('hot');
 end

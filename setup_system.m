@@ -15,17 +15,17 @@ for i = 1:m
             A(idx, idx) = -(dy*perm_avg(idx,nx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)/dx) + ...
                           -(dx*perm_avg(idx,ny,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)/dy);
             if(i == 1 && j ==1) % Lower left, handle dot products accordingly
-                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)+...%*dy + ...
-                         -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2);%*dx;
+                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)*dy + ...
+                         -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2)*dx;
             elseif(i == 1 && j == n) % Lower right
-                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)+...%*dy + ...
-                         -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2);%*dx;
+                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)*dy + ...
+                         -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2)*dx;
             elseif(i == m && j == 1) % Top left
-                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)+...%*dy + ...
-                         perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2);%*dx;
+                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)*dy + ...
+                         perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2)*dx;
             elseif(i == m && j == n) % Top right
-                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)+...%*dy + ...
-                         perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2);%*dx;
+                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)*dy + ...
+                         perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2)*dx;
             else
                 error('Something went wrong');
             end
@@ -38,9 +38,9 @@ for i = 1:m
                           -(dy*perm_avg(idx,idx+1,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)/dx) + ...
                           -(dx*perm_avg(idx,ny,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)/dy);
             if(i == 1) % On bottom, dot(surface normal,H)/H = -1
-                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2);%*dx;
+                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2)*dx;
             else % On top, dot(surface normal,H) = 1 
-                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2);%*dx;
+                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(2)*dx;
             end
         elseif on_left_or_right_edge(i,j,n,m)
             nx = get_lr_edge_neighbor_idx(i,j,n,m);
@@ -53,9 +53,9 @@ for i = 1:m
                           -(dx*perm_avg(idx,aboveme,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)/dy) + ...
                           -(dx*perm_avg(idx,belowme,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)/dy);
             if(j == 1) % Left edge, dot(surface normal,H)/H = -1
-                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1);%*dy;
+                b(idx) = -perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)*dy;
             else % right edge, dot(surface normal, H)/H = 1
-                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1);%*dy;
+                b(idx) = perm_smoothidx(idx,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy)*H0(1)*dy;
             end
         else
             aboveme = n*(i-1) + j - n;
