@@ -5,33 +5,33 @@
 clear all; close all; clc;
 
 %% Set up parameters
-a = 1.4e-6; % Radius of sphere
-sep = 2*1.4*a;
+a = 1; % Radius of sphere
+sep = 2*1.1*a;
 r1 = [0 -sep/2]';
 r2 = [0 sep/2]'; 
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
                                          % permiability of free space
                                          
-susc = 0.96; % Suscepibility of material, arbitrary
+susc = 1.0; % Suscepibility of material, arbitrary
 
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
-H0 = [0 477]'; % A/m
+H0 = [0 1]'; % A/m
 
 %% Define what stuff to plot
 four_plots = 0;
 interp_match_du_paper = 1   ;
 perm_map_debug=0;
 spy_mat = 0;
-hy_trifold = 1;
-hx_trifold = 1;
-hx_trifold_no_normalization =1;
+hy_trifold = 0;
+hx_trifold = 0;
+hx_trifold_no_normalization =0;
 hy_trifold_no_normalization=0;
-phi_trifold=1;
-hmag=1;
+phi_trifold=0;
+hmag=0;
 
 %% Set up the grid (n x m 2D grid)
-n = 1000;
-m = 1000;
+n = 600;
+m = 600;
 xdom = linspace(-5*a, 5*a, n);
 ydom = linspace(-5*a, 5*a, m);
 dx = xdom(2)-xdom(1);
@@ -88,23 +88,35 @@ HY_right = -HY_right;
 
 
 %% Formulate the maxwell stress tensor and integrate force around sphere
-f = [0 0]';
-border_threshold = sqrt(dx^2+dy^2);
+f1 = [0 0]';
+f2 = [0 0]';
+[FMX, FMY] = gradient(perm_map_debug_two_sph,xdom,ydom);
+FMX = -0.5*(HX.^2+HY.^2).*FMX;
+FMY = -0.5*(HX.^2+HY.^2).*FMY;
+
+
+% border_threshold = sqrt(dx^2+dy^2);
 for ii = 1:m
     for jj = 1:n
-        r = [XX(ii,jj) YY(ii,jj)]';
-        if( norm(r2-r) <=a+border_threshold && ...
-            norm(r2-r) >= a-border_threshold) % Edge of sphere
-            nunit = (r2-r)/norm(r2-r);
-            max_stress_tens = zeros(2,2);
-            Hx = HX(ii,jj);
-            Hy = HY(ii,jj);
-            Hmag = sqrt(Hx^2+Hy^2);
-            max_stress_tens(1,1) = perm*Hx^2 - (1/2)*Hmag^2;
-            max_stress_tens(1,2) = perm*Hx*Hy;
-            max_stress_tens(2,1) = perm*Hy*Hx;
-            max_stress_tens(2,2) = perm*Hy^2 - (1/2)*Hmag^2;
-            f = f + max_stress_tens*nunit*dx;
+         r = [XX(ii,jj) YY(ii,jj)]';
+%         if( norm(r2-r) <=a+border_threshold && ...
+%             norm(r2-r) >= a-border_threshold) % Edge of sphere
+%             nunit = (r2-r)/norm(r2-r);
+%             max_stress_tens = zeros(2,2);
+%             Hx = HX(ii,jj);
+%             Hy = HY(ii,jj);
+%             Hmag = sqrt(Hx^2+Hy^2);
+%             max_stress_tens(1,1) = perm*Hx^2 - (1/2)*Hmag^2;
+%             max_stress_tens(1,2) = perm*Hx*Hy;
+%             max_stress_tens(2,1) = perm*Hy*Hx;
+%             max_stress_tens(2,2) = perm*Hy^2 - (1/2)*Hmag^2;
+%             f = f + max_stress_tens*nunit*dx;
+%         end
+        if( norm(r1-r) <=a+(dx+dy)/4 )
+            f1 = f1 + [FMX(ii,jj) FMY(ii,jj)]'*dx*dy;
+        end
+        if( norm(r2-r) <=a+(dx+dy)/4 )
+            f2 = f2 + [FMX(ii,jj) FMY(ii,jj)]'*dx*dy;
         end
     end
 end
