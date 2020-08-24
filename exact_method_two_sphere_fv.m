@@ -2,11 +2,11 @@
 % Ian DesJardin
 % August 2020
 
-clear all; close all; clc;
+% clear all; close all; clc;
 
 %% Set up parameters
 a = 1; % Radius of sphere
-sep = 2*1.1*a;
+sep = 6*a;
 r1 = [0 -sep/2]';
 r2 = [0 sep/2]'; 
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
@@ -27,13 +27,13 @@ hx_trifold = 0;
 hx_trifold_no_normalization =0;
 hy_trifold_no_normalization=0;
 phi_trifold=0;
-hmag=0;
+hmag=1;
 
 %% Set up the grid (n x m 2D grid)
-n = 600;
-m = 600;
-xdom = linspace(-5*a, 5*a, n);
-ydom = linspace(-5*a, 5*a, m);
+n = 1000;
+m = 1000;
+xdom = linspace(-3*sep, 3*sep, n);
+ydom = linspace(-3*sep, 3*sep, m);
 dx = xdom(2)-xdom(1);
 dy = ydom(2)-ydom(1);
 [XX,YY] = meshgrid(xdom,ydom);

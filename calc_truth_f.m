@@ -19,8 +19,8 @@ perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
 H0 = [0 Hymag]'; % A/m
 
 %% Set up the grid (n x m 2D grid)
-xdom = linspace(-5*a, 5*a, n);
-ydom = linspace(-5*a, 5*a, m);
+xdom = linspace(-3*sep, 3*sep, n);
+ydom = linspace(-3*sep, 3*sep, m);
 dx = xdom(2)-xdom(1);
 dy = ydom(2)-ydom(1);
 [XX,YY] = meshgrid(xdom,ydom);
@@ -59,12 +59,11 @@ for ii = 1:m
 %             max_stress_tens(2,2) = perm*Hy^2 - (1/2)*Hmag^2;
 %             f = f + max_stress_tens*nunit*dx;
 %         end
-        if( norm(r1-r) <=a+(dx+dy)/4 )
+         if( YY(ii,jj)<0)%norm(r1-r) <= a)%+(dx+dy)/4)
             f1 = f1 + [FMX(ii,jj) FMY(ii,jj)]'*dx*dy;
-        end
-        if( norm(r2-r) <=a+(dx+dy)/4 )
+         else%if( norm(r2-r) <=a)%+(dx+dy)/4)
             f2 = f2 + [FMX(ii,jj) FMY(ii,jj)]'*dx*dy;
-        end
+         end
     end
 end
     
