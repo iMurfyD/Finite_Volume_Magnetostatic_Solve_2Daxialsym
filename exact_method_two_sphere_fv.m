@@ -2,89 +2,297 @@
 % Ian DesJardin
 % August 2020
 
-% clear all; close all; clc;
+ clear all; close all; clc;
 
 %% Set up parameters
-a = 1; % Radius of sphere
-sep = 6*a;
-r1 = [0 -sep/2]';
-r2 = [0 sep/2]'; 
+a = 1.4e-6; % Radius of sphere
+sep = 2.2*a;
+r1 = [0 0]';
+r2 = [0 0]'; 
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
                                          % permiability of free space
                                          
-susc = 1.0; % Suscepibility of material, arbitrary
+susc = 0.96; % Suscepibility of material, arbitrary
 
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
-H0 = [0 1]'; % A/m
+H0 = [0.0 477]'; % A/m
 
 %% Define what stuff to plot
 four_plots = 0;
 interp_match_du_paper = 1   ;
-perm_map_debug=0;
+perm_map_debug=1;
 spy_mat = 0;
-hy_trifold = 0;
+hy_trifold = 1;
 hx_trifold = 0;
 hx_trifold_no_normalization =0;
 hy_trifold_no_normalization=0;
 phi_trifold=0;
 hmag=1;
+debug_force_calc = 1;  
+one_sph_debug = 1;
 
 %% Set up the grid (n x m 2D grid)
 n = 1000;
 m = 1000;
-xdom = linspace(-3*sep, 3*sep, n);
-ydom = linspace(-3*sep, 3*sep, m);
+xdom = linspace(-20*a, 20*a, n);
+ydom = linspace(-20*a, 20*a, m);
 dx = xdom(2)-xdom(1);
 dy = ydom(2)-ydom(1);
 [XX,YY] = meshgrid(xdom,ydom);
 
+syst = struct('n',n,'m',m,'a',a,'dx',dx,'dy',dy,'XX',XX,'YY',YY,...
+              'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
+              'alpha', 10000);%0.2517);
+
 %% Form FV Matrix
-[A,b, perm_map_debug_two_sph] = setup_system_sparse(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
+fprintf('Setting up Linear System\n');
+[A,b, perm_map_debug_two_sph] = setup_system_sparse(syst);
+fprintf('Solving Linear System with \\ Operator\n');
+u = A\(b);
+fprintf('Done Solving Linear System with \\ Operator\n');
+
+
+fprintf('Computing Initial Solution Guess for PCG\n');
+init_guess = repelem((-ydom'*H0(2)),n);
+fprintf('Done Computing Initial Solution Guess for PCG\n');
+fprintf('Computing Cholesky Preconditioners for PCG\n');
+L = ichol(A);
+fprintf('Done Computing Cholesky Preconditioners for PCG\n');
+tol = 1e-10;
+fprintf('Solving Linear System with PCG Method to %g tolerance\n',tol);
+[u_numeric, flag,relres,iter,resvec] = pcg(A,b,tol,2000,L,L',init_guess);
+fprintf('Done Solving with PCG Method\n');
+phi = spread_1D_into_2D(u, m,n);
+phi_numeric = spread_1D_into_2D(u_numeric, m,n);
+
 if(spy_mat)
 figure;
 spy([A b]);
-title('Two Sphere A Matrix');
+title('Two Sphere [A b] Matrix');
+
+figure;
+pcolor(A);
+title('pcolor of A');
+colorbar;
+set(gca, 'YDir','reverse')
 end
-u = A\b;
-phi = spread_1D_into_2D(u, m,n);
+
+if(one_sph_debug)
+% Find theoretical 1 sphere phi
+phi_theoretical = zeros(size(phi));
+u_theoretical = zeros(n*m,1);
+for i = 1:length(xdom)
+    for j = 1:length(ydom)
+        idx = n*(i-1) + j; % Ordering of nodes in 1D
+        rvec = [XX(i,j)-r1(1) YY(i,j)-r1(2)]';
+        r = norm(rvec,2);
+        thta = atan2(rvec(1),rvec(2));
+        if(r >= a) % Outside
+        pt = (perm-perm_free_space)/(perm+2*perm_free_space);
+        phi_theoretical(i,j) = -H0(2)*r*cos(thta) + ...
+                           H0(2)*power(a,3)*pt*cos(thta)/power(r,2);
+        else % Inside
+            phi_theoretical(i,j) = -H0(2)*((3*perm_free_space)/...
+                                           (perm+2*perm_free_space))*...
+                                     r*cos(thta);
+    
+        end
+        u_theoretical(idx) = phi_theoretical(i,j);
+    end
+end
+
+figure; subplot(2,3,1);
+pc = pcolor(XX./a,YY./a,phi_theoretical); set(pc, 'EdgeColor', 'none');
+colorbar; title('\phi Theoretical');
+% xlim([-2 2]); ylim([-1 3]);
+
+subplot(2,3,2);
+pc = pcolor(XX./a,YY./a,phi); set(pc, 'EdgeColor', 'none');
+colorbar; title('\phi A Backslash b');
+% xlim([-2 2]); ylim([-1 3]);
+
+subplot(2,3,3);
+pc = pcolor(XX./a, YY./a, phi-phi_theoretical - mean(phi-phi_theoretical, 'all')); set(pc, 'EdgeColor', 'none');
+colorbar; title('\Delta \phi A Backslash b');
+% xlim([-2 2]); ylim([-1 3]);
+
+subplot(2,3,4);
+pc = pcolor(XX./a,YY./a,phi_numeric); set(pc, 'EdgeColor', 'none');
+colorbar; title('\phi cgs');
+% xlim([-2 2]); ylim([-1 3]);
+
+subplot(2,3,5);
+pc = pcolor(XX./a, YY./a, phi_numeric-phi_theoretical- mean(phi-phi_theoretical, 'all')); set(pc, 'EdgeColor', 'none');
+colorbar; title('\Delta \phi cgs');
+% xlim([-2 2]); ylim([-1 3]);
+
+subplot(2,3,6);
+pc = pcolor(XX./a, YY./a, abs(phi-phi_numeric)); set(pc, 'EdgeColor', 'none');
+colorbar; title('|\Delta \phi A Backslash b - cgs|');
+% xlim([-2 2]); ylim([-1 3]);
+
 [HX, HY] = gradient(phi,xdom,ydom);
+HX=-HX;
+HY=-HY;
+[HXt, HYt] = gradient(phi_theoretical,xdom,ydom);
+HXt=-HXt;
+HYt=-HYt;
+
+[HXn,HYn] = gradient(phi_numeric, xdom, ydom);
+HXn=-HXn;
+HYn=-HYn;
+
+
+
+figure; subplot(2,3,1);
+pc = pcolor(XX./a,YY./a,sqrt(HX.^2+HY.^2)); set(pc, 'EdgeColor', 'none');
+colorbar; title('|H| Calculated');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,2);
+pc = pcolor(XX./a,YY./a,sqrt(HXt.^2+HYt.^2)); set(pc, 'EdgeColor', 'none');
+colorbar; title('|H| Theoretical');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,3);
+pc = pcolor(XX./a, YY./a, abs(sqrt(HX.^2+HY.^2)-sqrt(HXt.^2+HYt.^2))./sqrt(HXt.^2+HYt.^2)); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('|\Delta |H| |/ |H|_t');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,4);
+pc = pcolor(XX./a,YY./a,sqrt(HXn.^2+HYn.^2)); set(pc, 'EdgeColor', 'none');
+colorbar; title('|H| Conjugate Gradient');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,5);
+pc = pcolor(XX./a, YY./a, abs(sqrt(HXn.^2+HYn.^2)-sqrt(HXt.^2+HYt.^2))./sqrt(HXt.^2+HYt.^2)); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('|\Delta |H_n| |/ |H|_t');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,6);
+pc = pcolor(XX./a, YY./a, abs(sqrt(HXn.^2+HYn.^2)-sqrt(HX.^2+HY.^2))./sqrt(HX.^2+HY.^2)); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('|\Delta |H_n - H| |/ |H|');
+xlim([-2 2]); ylim([-2 2]);
+
+figure; subplot(2,3,1);
+pc = pcolor(XX./a,YY./a,HX); set(pc, 'EdgeColor', 'none');
+colorbar; title('Hx Calculated');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,2);
+pc = pcolor(XX./a,YY./a,HXt); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('Hx Theoretical');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,3);
+pc = pcolor(XX./a, YY./a, (HX-HXt)); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('\Delta Hx');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,4);
+pc = pcolor(XX./a,YY./a,HXn); set(pc, 'EdgeColor', 'none');
+colorbar; title('Hxn Calculated');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,5);
+pc = pcolor(XX./a,YY./a,HXn-HXt); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('Hxn-Hxt');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,6);
+pc = pcolor(XX./a, YY./a, (HXn-HX)); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('Hxn-Hx');
+xlim([-2 2]); ylim([-2 2]);
+
+figure; subplot(2,3,1);
+pc = pcolor(XX./a,YY./a,HY); set(pc, 'EdgeColor', 'none');
+colorbar; title('Hy Calculated');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,2);
+pc = pcolor(XX./a,YY./a,HYt);
+set(pc, 'EdgeColor', 'none');
+colorbar; title('Hy Theoretical');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,3);
+pc = pcolor(XX./a, YY./a, (HY-HYt)./HYt); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('\Delta Hy / H_yt');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,4);
+pc = pcolor(XX./a,YY./a,HYn); set(pc, 'EdgeColor', 'none');
+colorbar; title('Hyn Calculated');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,5);
+pc = pcolor(XX./a,YY./a,(HYn-HYt)./HYt); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('(Hyn-Hyt)/Hyt');
+xlim([-2 2]); ylim([-2 2]);
+
+subplot(2,3,6);
+pc = pcolor(XX./a, YY./a, (HYn-HY)); 
+set(pc, 'EdgeColor', 'none');
+colorbar; title('Hyn-Hy');
+xlim([-2 2]); ylim([-2 2]);
+
+end    
+[HX, HY] = gradient(phi,xdom,ydom);
+HY=-HY;
+HX=-HX;
 % H = -grad(phi), HX is calculated with opposite sign convention I think
-HX = HX;
-HY = -HY;
 
 %% Form FV Matrix and solve for just left sphere
 r2 = r1;
-[A,b, perm_map_debug_left_sph] = setup_system_sparse(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
-
+[A,b, perm_map_debug_left_sph] = setup_system_sparse(syst);
 if(spy_mat)
 figure;
 spy([A b]);
 title('Left Sphere A Matrix');
 end
 u = A\b;
+% % u_guess = A\b;
+% u = minres(A,b,tol, maxit, [], [], u_guess);
+% % [u,flag,relres,iter,resvec] = gmres(A,b, [], tol, maxit, [], [], u_guess);
+% fprintf('Finished second system\n');
+% % disp(relres);
+% % disp(resvec);
 phi_left = spread_1D_into_2D(u, m,n);
 [HX_left, HY_left] = gradient(phi_left,xdom,ydom);
-% H = -grad(phi), HX is calculated with opposite sign convention I think
-HX_left = HX_left;
+HX_left = -HX_left;
 HY_left = -HY_left;
+% H = -grad(phi), HX is calculated with opposite sign convention I think
 
 %% Form FV Matrix and solve for just right sphere
 r2 = [0 sep/2]';
 r1 = r2;
-[A,b, perm_map_debug_right_sph] = setup_system_sparse(m,n,XX,YY,r1,r2,a,perm,perm_free_space,dx,dy,H0);
-
+[A,b, perm_map_debug_right_sph] = setup_system_sparse(syst);
 if(spy_mat)
 figure;
 spy([A b]);
 title('Right Sphere A Matrix');
 end
 u = A\b;
+% % u_guess = A\b;
+% u = minres(A,b,tol, maxit, [], [], u_guess);
+% % [u,flag,relres,iter,resvec] = gmres(A,b, [], tol, maxit, [], [], u_guess);
+% fprintf('Finished third system\n');
+% % disp(relres);
+% % disp(resvec);
 phi_right = spread_1D_into_2D(u, m,n);
 [HX_right, HY_right] = gradient(phi_right,xdom,ydom);
+HX_right=-HX_right;
+HY_right=-HY_right;
 % H = -grad(phi), HX is calculated with opposite sign convention I think
-HX_right = HX_right;
-HY_right = -HY_right;
-
 
 
 %% Formulate the maxwell stress tensor and integrate force around sphere
@@ -94,32 +302,126 @@ f2 = [0 0]';
 FMX = -0.5*(HX.^2+HY.^2).*FMX;
 FMY = -0.5*(HX.^2+HY.^2).*FMY;
 
+if(debug_force_calc)    
+figure; 
+pc = pcolor(XX,YY,FMX); set(pc, 'EdgeColor', 'none');
+xlim([-3e-6 3e-6]); ylim([-3e-6 3e-6]);
+title('FMX');
+colorbar; 
 
-% border_threshold = sqrt(dx^2+dy^2);
+figure; 
+pc = pcolor(XX,YY,FMY); set(pc, 'EdgeColor', 'none');
+hold on; % Don't let plot blow away the image.
+theta = 0 : 0.01 : 2*pi;
+radius = a;
+xx = radius * cos(theta) + r1(1);
+yy = radius * sin(theta) + r1(2);
+plot(xx, yy, 'r-', 'LineWidth', 1);
+theta = 0 : 0.01 : 2*pi;
+radius = a;
+xx = radius * cos(theta) + r2(1);
+yy = radius * sin(theta) + r2(2);
+plot(xx, yy, 'r-', 'LineWidth', 1);
+xlim([-3e-6 3e-6]); ylim([-3e-6 3e-6]);
+title('FMY');
+colorbar;
+end
+
+c_map = zeros(size(XX));
+fx_per_vol_dV = zeros(size(XX));
+fy_per_vol_dV = zeros(size(XX));
+test_fV = 1/((4/3)*pi*a^3);
+% fprintf('test_FV = %g \n', test_fV);
 for ii = 1:m
     for jj = 1:n
-         r = [XX(ii,jj) YY(ii,jj)]';
-%         if( norm(r2-r) <=a+border_threshold && ...
-%             norm(r2-r) >= a-border_threshold) % Edge of sphere
-%             nunit = (r2-r)/norm(r2-r);
-%             max_stress_tens = zeros(2,2);
-%             Hx = HX(ii,jj);
-%             Hy = HY(ii,jj);
-%             Hmag = sqrt(Hx^2+Hy^2);
-%             max_stress_tens(1,1) = perm*Hx^2 - (1/2)*Hmag^2;
-%             max_stress_tens(1,2) = perm*Hx*Hy;
-%             max_stress_tens(2,1) = perm*Hy*Hx;
-%             max_stress_tens(2,2) = perm*Hy^2 - (1/2)*Hmag^2;
-%             f = f + max_stress_tens*nunit*dx;
-%         end
-        if( norm(r1-r) <=a+(dx+dy)/4 )
-            f1 = f1 + [FMX(ii,jj) FMY(ii,jj)]'*dx*dy;
+        if(YY(ii,jj) <= 0) % r1
+%             if(norm([XX(ii,jj) YY(ii,jj)]'-r1)<=a)
+            if(abs(XX(ii,jj)) <= mean([dx dy]))
+                circum = 2*pi*mean([dx dy])/2;
+            else
+                circum = 2*pi*abs(XX(ii,jj))/2;
+            end
+            c_map(ii,jj) = circum;
+%             f_per_vol_dV = [0 test_fV]'*dx*dy*abs(circum);
+            f_per_vol_dV = [FMX(ii,jj) FMY(ii,jj)]'*dx*dy*abs(circum);
+            fx_per_vol_dV(ii,jj) = f_per_vol_dV(1);
+            fy_per_vol_dV(ii,jj) = f_per_vol_dV(2);  
+            f1 = f1 + f_per_vol_dV;
+%             end
+        else % r2
+%             if(norm([XX(ii,jj) YY(ii,jj)]'-r2)<=a)
+            if(abs(XX(ii,jj)) <= mean([dx dy]))
+                circum = mean([dx dy]);
+            else
+                circum = 2*pi*abs(XX(ii,jj))/2;
+            end
+            c_map(ii,jj) = circum;
+            f_per_vol_dV = [FMX(ii,jj) FMY(ii,jj)]'*dx*dy*abs(circum);
+%             f_per_vol_dV = [0 test_fV]'*dx*dy*abs(circum);
+            fx_per_vol_dV(ii,jj) = f_per_vol_dV(1);
+            fy_per_vol_dV(ii,jj) = f_per_vol_dV(2);  
+            f2 = f2 + f_per_vol_dV;
+%             end
         end
-        if( norm(r2-r) <=a+(dx+dy)/4 )
-            f2 = f2 + [FMX(ii,jj) FMY(ii,jj)]'*dx*dy;
-        end
+       
     end
 end
+
+if(debug_force_calc)
+    
+fprintf('mean c = %g\n', mean(circum,'all'));
+fprintf('mean c/(2*pi) = %g\n', mean(circum,'all')/(2*pi));
+
+
+figure; 
+pc = pcolor(XX,YY,c_map); set(pc, 'EdgeColor', 'none');
+hold on; % Don't let plot blow away the image.
+theta = 0 : 0.01 : 2*pi;
+radius = a;
+xx = radius * cos(theta) + r1(1);
+yy = radius * sin(theta) + r1(2);
+plot(xx, yy, 'r-', 'LineWidth', 1);
+xlim([-3e-6 3e-6]); ylim([-3e-6 3e-6]);
+theta = 0 : 0.01 : 2*pi;
+radius = a;
+xx = radius * cos(theta) + r2(1);
+yy = radius * sin(theta) + r2(2);
+plot(xx, yy, 'r-', 'LineWidth', 1);
+xlim([-3e-6 3e-6]); ylim([-3e-6 3e-6]);
+title('depth');
+colorbar; 
+caxis([0 pi*a]);
+
+figure; 
+pc = pcolor(XX,YY,fx_per_vol_dV); set(pc, 'EdgeColor', 'none');
+xlim([-3e-6 3e-6]); ylim([-3e-6 3e-6]);
+title('fx_per_vol');
+colorbar; 
+
+figure; 
+pc = pcolor(XX,YY,fy_per_vol_dV); set(pc, 'EdgeColor', 'none');
+hold on; % Don't let plot blow away the image.
+theta = 0 : 0.01 : 2*pi;
+radius = a;
+xx = radius * cos(theta) + r1(1);
+yy = radius * sin(theta) + r1(2);
+plot(xx, yy, 'r-', 'LineWidth', 1);
+xlim([-3e-6 3e-6]); ylim([-3e-6 3e-6]);
+theta = 0 : 0.01 : 2*pi;
+radius = a;
+xx = radius * cos(theta) + r2(1);
+yy = radius * sin(theta) + r2(2);
+plot(xx, yy, 'r-', 'LineWidth', 1);
+xlim([-3e-6 3e-6]); ylim([-3e-6 3e-6]);
+title('fy_per_vol');
+colorbar;
+
+fprintf('f1 = %g\n',f1);
+fprintf('f2 = %g\n', f2);
+end
+
+
+fmag = f1(2);
             
 %% Plot result
 if(phi_trifold)
@@ -146,9 +448,20 @@ end
 
 %% Hmag
 if(hmag)
+    absHXHY = sqrt(HX.^2+HY.^2);
+
+figure;
+pc = pcolor(XX/(2*a),YY/(2*a),absHXHY); 
+set(pc, 'EdgeColor', 'none');
+title('|H| (Two Spheres)');
+ylabel('y/D');
+xlabel('x/D');
+colorbar; colormap('hot');
+xlim([-2 2]);
+ylim([-2 2]);
+
 figure;
 subplot(1,3,1);
-absHXHY = sqrt(HX.^2+HY.^2);
 pc = contourf(XX/(2*a),YY/(2*a),absHXHY, 20); 
 % set(pc, 'EdgeColor', 'none');
 title('|H| (Two Spheres)');
@@ -231,7 +544,7 @@ title('H_x (Two Spheres)');
 ylabel('y/D');
 xlabel('x/D');
 xlim([-2/4 0]);
-ylim([0.0 0.5]);
+ylim([-0.5 0.5]);
 colorbar; colormap('hot');
 subplot(1,4,2);
 pc = pcolor(XX/(2*a),YY/(2*a),HX_left); set(pc, 'EdgeColor', 'none');
@@ -240,7 +553,7 @@ title('H_x (Left Sphere)');
 ylabel('y/D');
 xlabel('x/D');
 xlim([-2/4 0]);
-ylim([0.0 0.5]);
+ylim([-0.5 0.5]);
 colorbar; colormap('hot');
 subplot(1,4,3);
 pc = pcolor(XX/(2*a),YY/(2*a),HX_right); set(pc, 'EdgeColor', 'none');
@@ -249,7 +562,7 @@ title('H_x (Right Sphere)');
 ylabel('y/D');
 xlabel('x/D');
 xlim([-2/4 0]);
-ylim([0.0 0.5]);
+ylim([-0.5 0.5]);
 colorbar; colormap('hot');
 subplot(1,4,4);
 pc = pcolor(XX/(2*a),YY/(2*a),HX_right+HX_left-HX); set(pc, 'EdgeColor', 'none');
@@ -258,7 +571,7 @@ title('\Delta H_x');
 ylabel('y/D');
 xlabel('x/D');
 xlim([-2/4 0]);
-ylim([0.0 0.5]);
+ylim([-0.5 0.5]);
 colorbar; colormap('hot');
 end
 
@@ -314,9 +627,9 @@ if(interp_match_du_paper)
 dHx = HX_right + HX_left - H0(1)*ones(size(HX)) - HX;
 dHy = HY_left + HY_right - H0(2)*ones(size(HY)) - HY;
 figure;
-[xxx, yyy] = meshgrid(linspace(-5*a, 5*a, n*10), linspace(-5*a, 5*a, m*10));
-dHy_interp = interp2(XX, YY, dHy, xxx, yyy, 'cubic');
-dHx_interp = interp2(XX, YY, dHx, xxx, yyy, 'cubic');
+% [xxx, yyy] = meshgrid(linspace(-5*a, 5*a, n*10), linspace(-5*a, 5*a, m*10));
+% dHy_interp = interp2(XX, YY, dHy, xxx, yyy, 'cubic');
+% dHx_interp = interp2(XX, YY, dHx, xxx, yyy, 'cubic');
 subplot(1,2,1);
 pc = pcolor(XX./(2*a),YY./(2*a),dHy); set(pc, 'EdgeColor', 'none');
 %caxis([-15 10]');
