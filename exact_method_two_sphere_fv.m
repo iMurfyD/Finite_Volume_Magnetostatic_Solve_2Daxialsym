@@ -7,15 +7,15 @@
 %% Set up parameters
 a = 1.4e-6; % Radius of sphere
 sep = 2.2*a;
-r1 = [0 0]';
-r2 = [0 0]'; 
+r1 = [0 0 0]';
+r2 = [0 0 0]'; 
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
                                          % permiability of free space
                                          
 susc = 0.96; % Suscepibility of material, arbitrary
 
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
-H0 = [0.0 477]'; % A/m
+H0 = [0.0 0.0 477]'; % A/m
 
 %% Define what stuff to plot
 four_plots = 0;
@@ -31,39 +31,43 @@ hmag=1;
 debug_force_calc = 1;  
 one_sph_debug = 1;
 
-%% Set up the grid (n x m 2D grid)
-n = 1000;
-m = 1000;
-xdom = linspace(-20*a, 20*a, n);
-ydom = linspace(-20*a, 20*a, m);
+%% Set up the grid (l x m x n 3D grid)
+l = 100;
+m = 100;
+n = 500;
+xdom = linspace(-10*a, 10*a, l);
+ydom = linspace(-10*a, 10*a, m);
+zdom = linspace(-15*a, 15*a, n);
 dx = xdom(2)-xdom(1);
 dy = ydom(2)-ydom(1);
-[XX,YY] = meshgrid(xdom,ydom);
+dz = zdom(2)-zdom(1);
+[XX,YY,ZZ] = meshgrid(xdom,ydom,zdom);
 
-syst = struct('n',n,'m',m,'a',a,'dx',dx,'dy',dy,'XX',XX,'YY',YY,...
+syst = struct('l',l,'m',m,'n',n,'a',a,'dx',dx,'dy',dy,'dz',dz,...
+              'XX',XX,'YY',YY,'ZZ',ZZ,...
               'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
               'alpha', 10000);%0.2517);
 
 %% Form FV Matrix
 fprintf('Setting up Linear System\n');
 [A,b, perm_map_debug_two_sph] = setup_system_sparse(syst);
-fprintf('Solving Linear System with \\ Operator\n');
-u = A\(b);
-fprintf('Done Solving Linear System with \\ Operator\n');
+% fprintf('Solving Linear System with \\ Operator\n');
+% u = A\(b);
+% fprintf('Done Solving Linear System with \\ Operator\n');
 
 
 fprintf('Computing Initial Solution Guess for PCG\n');
-init_guess = repelem((-ydom'*H0(2)),n);
+% init_guess = repelem((-ydom'*H0(3)),l*m);
 fprintf('Done Computing Initial Solution Guess for PCG\n');
 fprintf('Computing Cholesky Preconditioners for PCG\n');
 L = ichol(A);
 fprintf('Done Computing Cholesky Preconditioners for PCG\n');
 tol = 1e-10;
 fprintf('Solving Linear System with PCG Method to %g tolerance\n',tol);
-[u_numeric, flag,relres,iter,resvec] = pcg(A,b,tol,2000,L,L',init_guess);
+[u_numeric, flag,relres,iter,resvec] = pcg(A,b,tol,2000,L,L');
 fprintf('Done Solving with PCG Method\n');
-phi = spread_1D_into_2D(u, m,n);
-phi_numeric = spread_1D_into_2D(u_numeric, m,n);
+% phi = spread_1D_into_3D(u,syst);
+phi_numeric = spread_1D_into_3D(u_numeric,syst);
 
 if(spy_mat)
 figure;
@@ -79,69 +83,42 @@ end
 
 if(one_sph_debug)
 % Find theoretical 1 sphere phi
-phi_theoretical = zeros(size(phi));
+phi_theoretical = zeros(size(XX));
 u_theoretical = zeros(n*m,1);
 for i = 1:length(xdom)
     for j = 1:length(ydom)
-        idx = n*(i-1) + j; % Ordering of nodes in 1D
-        rvec = [XX(i,j)-r1(1) YY(i,j)-r1(2)]';
+        for k = 1:length(zdom)
+        idx = indexf(i,j,k,syst);
+        rvec = [XX(i,j,k)-r1(1) YY(i,j,k)-r1(2) ZZ(i,j,k)-r1(3)]';
         r = norm(rvec,2);
-        thta = atan2(rvec(1),rvec(2));
+        thta = atan2(rvec(1),rvec(3));
         if(r >= a) % Outside
         pt = (perm-perm_free_space)/(perm+2*perm_free_space);
-        phi_theoretical(i,j) = -H0(2)*r*cos(thta) + ...
-                           H0(2)*power(a,3)*pt*cos(thta)/power(r,2);
+        phi_theoretical(i,j) = -H0(3)*r*cos(thta) + ...
+                           H0(3)*power(a,3)*pt*cos(thta)/power(r,2);
         else % Inside
-            phi_theoretical(i,j) = -H0(2)*((3*perm_free_space)/...
+            phi_theoretical(i,j) = -H0(3)*((3*perm_free_space)/...
                                            (perm+2*perm_free_space))*...
                                      r*cos(thta);
     
         end
         u_theoretical(idx) = phi_theoretical(i,j);
+        end
     end
 end
 
-figure; subplot(2,3,1);
-pc = pcolor(XX./a,YY./a,phi_theoretical); set(pc, 'EdgeColor', 'none');
-colorbar; title('\phi Theoretical');
-% xlim([-2 2]); ylim([-1 3]);
-
-subplot(2,3,2);
-pc = pcolor(XX./a,YY./a,phi); set(pc, 'EdgeColor', 'none');
-colorbar; title('\phi A Backslash b');
-% xlim([-2 2]); ylim([-1 3]);
-
-subplot(2,3,3);
-pc = pcolor(XX./a, YY./a, phi-phi_theoretical - mean(phi-phi_theoretical, 'all')); set(pc, 'EdgeColor', 'none');
-colorbar; title('\Delta \phi A Backslash b');
-% xlim([-2 2]); ylim([-1 3]);
-
-subplot(2,3,4);
-pc = pcolor(XX./a,YY./a,phi_numeric); set(pc, 'EdgeColor', 'none');
-colorbar; title('\phi cgs');
-% xlim([-2 2]); ylim([-1 3]);
-
-subplot(2,3,5);
-pc = pcolor(XX./a, YY./a, phi_numeric-phi_theoretical- mean(phi-phi_theoretical, 'all')); set(pc, 'EdgeColor', 'none');
-colorbar; title('\Delta \phi cgs');
-% xlim([-2 2]); ylim([-1 3]);
-
-subplot(2,3,6);
-pc = pcolor(XX./a, YY./a, abs(phi-phi_numeric)); set(pc, 'EdgeColor', 'none');
-colorbar; title('|\Delta \phi A Backslash b - cgs|');
-% xlim([-2 2]); ylim([-1 3]);
-
-[HX, HY] = gradient(phi,xdom,ydom);
-HX=-HX;
-HY=-HY;
-[HXt, HYt] = gradient(phi_theoretical,xdom,ydom);
+% [HX, HY, HZ] = gradient(phi,xdom,ydom,zdom);
+% HX=-HX;
+% HY=-HY;
+[HXt, HYt, HZt] = gradient(phi_theoretical,xdom,ydom,zdom);
 HXt=-HXt;
 HYt=-HYt;
 
-[HXn,HYn] = gradient(phi_numeric, xdom, ydom);
+[HXn,HYn, HZn] = gradient(phi_numeric, xdom, ydom,zdom);
 HXn=-HXn;
 HYn=-HYn;
 
+figure; pc=pcolor(squeeze(HZn(25,:,:)));set(pc,'EdgeColor','none');colorbar;
 
 
 figure; subplot(2,3,1);
