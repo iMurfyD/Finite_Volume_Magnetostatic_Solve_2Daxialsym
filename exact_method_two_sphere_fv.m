@@ -7,15 +7,15 @@
 %% Set up parameters
 a = 1.4e-6; % Radius of sphere
 sep = 2.2*a;
-r1 = [0 0 0]';
-r2 = [0 0 0]'; 
+r1 = [0 0]';%-sep/2]';
+r2 = [0 0]';%sep/2]'; 
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
                                          % permiability of free space
                                          
 susc = 0.96; % Suscepibility of material, arbitrary
 
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
-H0 = [0.0 0.0 477]'; % A/m
+H0 = [0.0 477]'; % A/m
 
 %% Define what stuff to plot
 four_plots = 0;
@@ -31,43 +31,40 @@ hmag=1;
 debug_force_calc = 1;  
 one_sph_debug = 1;
 
-%% Set up the grid (l x m x n 3D grid)
-l = 100;
-m = 100;
-n = 500;
-xdom = linspace(-10*a, 10*a, l);
-ydom = linspace(-10*a, 10*a, m);
-zdom = linspace(-15*a, 15*a, n);
-dx = xdom(2)-xdom(1);
-dy = ydom(2)-ydom(1);
+%% Set up the grid (n (x,s) x m (y,z) 2D axial grid)
+n = 700;
+m = 700;
+sdom = linspace(-8*a, 8*a, n);
+zdom = linspace(-8*a, 8*a, m);
+ds = sdom(2)-sdom(1);
 dz = zdom(2)-zdom(1);
-[XX,YY,ZZ] = meshgrid(xdom,ydom,zdom);
+[XX,YY] = meshgrid(sdom,zdom);
 
-syst = struct('l',l,'m',m,'n',n,'a',a,'dx',dx,'dy',dy,'dz',dz,...
-              'XX',XX,'YY',YY,'ZZ',ZZ,...
-              'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
-              'alpha', 10000);%0.2517);
+syst = struct('n',n,'m',m,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
+              'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,...
+              'alpha', 0.2517);
 
 %% Form FV Matrix
 fprintf('Setting up Linear System\n');
 [A,b, perm_map_debug_two_sph] = setup_system_sparse(syst);
-% fprintf('Solving Linear System with \\ Operator\n');
-% u = A\(b);
-% fprintf('Done Solving Linear System with \\ Operator\n');
+fprintf('Solving Linear System with \\ Operator\n');
+u = A\(b);
+fprintf('Done Solving Linear System with \\ Operator\n');
 
 
-fprintf('Computing Initial Solution Guess for PCG\n');
-% init_guess = repelem((-ydom'*H0(3)),l*m);
-fprintf('Done Computing Initial Solution Guess for PCG\n');
-fprintf('Computing Cholesky Preconditioners for PCG\n');
-L = ichol(A);
-fprintf('Done Computing Cholesky Preconditioners for PCG\n');
-tol = 1e-10;
-fprintf('Solving Linear System with PCG Method to %g tolerance\n',tol);
-[u_numeric, flag,relres,iter,resvec] = pcg(A,b,tol,2000,L,L');
-fprintf('Done Solving with PCG Method\n');
-% phi = spread_1D_into_3D(u,syst);
-phi_numeric = spread_1D_into_3D(u_numeric,syst);
+% fprintf('Computing Initial Solution Guess for PCG\n');
+% % init_guess = repelem((-ydom'*H0(3)),l*m);
+% fprintf('Done Computing Initial Solution Guess for PCG\n');
+% fprintf('Computing Cholesky Preconditioners for PCG\n');
+% L = ichol(A);
+% fprintf('Done Computing Cholesky Preconditioners for PCG\n');
+% tol = 1e-10;
+% fprintf('Solving Linear System with PCG Method to %g tolerance\n',tol);
+% [u_numeric, flag,relres,iter,resvec] = pcg(A,b,tol,200,L,L');
+% fprintf('Done Solving with PCG Method\n');
+% fprintf('%i Iterations\nLast Residual = %g\n', iter, relres);
+phi = spread_1D_into_2D(u,syst);
+% phi_numeric = spread_1D_into_3D(u_numeric,syst);
 
 if(spy_mat)
 figure;
@@ -81,152 +78,46 @@ colorbar;
 set(gca, 'YDir','reverse')
 end
 
-if(one_sph_debug)
-% Find theoretical 1 sphere phi
-phi_theoretical = zeros(size(XX));
-u_theoretical = zeros(n*m,1);
-for i = 1:length(xdom)
-    for j = 1:length(ydom)
-        for k = 1:length(zdom)
-        idx = indexf(i,j,k,syst);
-        rvec = [XX(i,j,k)-r1(1) YY(i,j,k)-r1(2) ZZ(i,j,k)-r1(3)]';
-        r = norm(rvec,2);
-        thta = atan2(rvec(1),rvec(3));
-        if(r >= a) % Outside
-        pt = (perm-perm_free_space)/(perm+2*perm_free_space);
-        phi_theoretical(i,j) = -H0(3)*r*cos(thta) + ...
-                           H0(3)*power(a,3)*pt*cos(thta)/power(r,2);
-        else % Inside
-            phi_theoretical(i,j) = -H0(3)*((3*perm_free_space)/...
-                                           (perm+2*perm_free_space))*...
-                                     r*cos(thta);
-    
-        end
-        u_theoretical(idx) = phi_theoretical(i,j);
-        end
-    end
-end
-
-% [HX, HY, HZ] = gradient(phi,xdom,ydom,zdom);
-% HX=-HX;
-% HY=-HY;
-[HXt, HYt, HZt] = gradient(phi_theoretical,xdom,ydom,zdom);
-HXt=-HXt;
-HYt=-HYt;
-
-[HXn,HYn, HZn] = gradient(phi_numeric, xdom, ydom,zdom);
+[HXn,HYn] = gradient(phi, sdom, zdom);    
 HXn=-HXn;
 HYn=-HYn;
 
-figure; pc=pcolor(squeeze(HZn(25,:,:)));set(pc,'EdgeColor','none');colorbar;
+%% Plotting
+% figure; pc=pcolor(squeeze(HZn(50,:,:)));set(pc,'EdgeColor','none');colorbar;
 
+figure;
+% figure; subplot(2,2,1);
+absHn = sqrt(HXn.^2+HYn.^2);
+pc = pcolor(XX./a,YY./a,absHn); set(pc, 'EdgeColor', 'none');
+colorbar; title('|H|');
+axis equal;
+xlim([-3 3]); ylim([-3 3]);
 
-figure; subplot(2,3,1);
-pc = pcolor(XX./a,YY./a,sqrt(HX.^2+HY.^2)); set(pc, 'EdgeColor', 'none');
-colorbar; title('|H| Calculated');
-xlim([-2 2]); ylim([-2 2]);
+subplot(2,2,2);
+pc = pcolor(squeeze(XX(100,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HXn(50,:,:))); set(pc, 'EdgeColor', 'none');
+colorbar; title('H_{x}');
+axis equal;
+xlim([-3 3]); ylim([-3 3]);
 
-subplot(2,3,2);
-pc = pcolor(XX./a,YY./a,sqrt(HXt.^2+HYt.^2)); set(pc, 'EdgeColor', 'none');
-colorbar; title('|H| Theoretical');
-xlim([-2 2]); ylim([-2 2]);
+subplot(2,2,3);
+pc = pcolor(squeeze(XX(100,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HYn(50,:,:))); set(pc, 'EdgeColor', 'none');
+colorbar; title('H_{y}');
+axis equal;
+xlim([-3 3]); ylim([-3 3]);
 
-subplot(2,3,3);
-pc = pcolor(XX./a, YY./a, abs(sqrt(HX.^2+HY.^2)-sqrt(HXt.^2+HYt.^2))./sqrt(HXt.^2+HYt.^2)); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('|\Delta |H| |/ |H|_t');
-xlim([-2 2]); ylim([-2 2]);
+subplot(2,2,4);
+pc = pcolor(squeeze(XX(100,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HZn(50,:,:))); set(pc, 'EdgeColor', 'none');
+colorbar; title('H_{z} ');
+axis equal;
+xlim([-3 3]); ylim([-3 3]);
 
-subplot(2,3,4);
-pc = pcolor(XX./a,YY./a,sqrt(HXn.^2+HYn.^2)); set(pc, 'EdgeColor', 'none');
-colorbar; title('|H| Conjugate Gradient');
-xlim([-2 2]); ylim([-2 2]);
+figure; 
+pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(absHn(50,:,:))); set(pc, 'EdgeColor', 'none');
+colorbar; title('|H|');
+axis equal;
+rotate(pc, [0 0 1], 90);
+xlim([-3 3]); ylim([-2 2]);
 
-subplot(2,3,5);
-pc = pcolor(XX./a, YY./a, abs(sqrt(HXn.^2+HYn.^2)-sqrt(HXt.^2+HYt.^2))./sqrt(HXt.^2+HYt.^2)); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('|\Delta |H_n| |/ |H|_t');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,6);
-pc = pcolor(XX./a, YY./a, abs(sqrt(HXn.^2+HYn.^2)-sqrt(HX.^2+HY.^2))./sqrt(HX.^2+HY.^2)); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('|\Delta |H_n - H| |/ |H|');
-xlim([-2 2]); ylim([-2 2]);
-
-figure; subplot(2,3,1);
-pc = pcolor(XX./a,YY./a,HX); set(pc, 'EdgeColor', 'none');
-colorbar; title('Hx Calculated');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,2);
-pc = pcolor(XX./a,YY./a,HXt); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('Hx Theoretical');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,3);
-pc = pcolor(XX./a, YY./a, (HX-HXt)); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('\Delta Hx');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,4);
-pc = pcolor(XX./a,YY./a,HXn); set(pc, 'EdgeColor', 'none');
-colorbar; title('Hxn Calculated');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,5);
-pc = pcolor(XX./a,YY./a,HXn-HXt); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('Hxn-Hxt');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,6);
-pc = pcolor(XX./a, YY./a, (HXn-HX)); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('Hxn-Hx');
-xlim([-2 2]); ylim([-2 2]);
-
-figure; subplot(2,3,1);
-pc = pcolor(XX./a,YY./a,HY); set(pc, 'EdgeColor', 'none');
-colorbar; title('Hy Calculated');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,2);
-pc = pcolor(XX./a,YY./a,HYt);
-set(pc, 'EdgeColor', 'none');
-colorbar; title('Hy Theoretical');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,3);
-pc = pcolor(XX./a, YY./a, (HY-HYt)./HYt); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('\Delta Hy / H_yt');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,4);
-pc = pcolor(XX./a,YY./a,HYn); set(pc, 'EdgeColor', 'none');
-colorbar; title('Hyn Calculated');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,5);
-pc = pcolor(XX./a,YY./a,(HYn-HYt)./HYt); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('(Hyn-Hyt)/Hyt');
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(2,3,6);
-pc = pcolor(XX./a, YY./a, (HYn-HY)); 
-set(pc, 'EdgeColor', 'none');
-colorbar; title('Hyn-Hy');
-xlim([-2 2]); ylim([-2 2]);
-
-end    
-[HX, HY] = gradient(phi,xdom,ydom);
-HY=-HY;
-HX=-HX;
-% H = -grad(phi), HX is calculated with opposite sign convention I think
 
 %% Form FV Matrix and solve for just left sphere
 r2 = r1;

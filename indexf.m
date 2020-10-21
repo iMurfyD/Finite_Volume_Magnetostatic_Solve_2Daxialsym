@@ -1,3 +1,3 @@
-function idx = indexf(i,j,k,syst)
-idx = i+syst.l*(j-1)+(syst.l*syst.m)*(k-1);
+function idx = indexf(i,j,syst)
+idx = i+syst.n*(j-1);
 end
