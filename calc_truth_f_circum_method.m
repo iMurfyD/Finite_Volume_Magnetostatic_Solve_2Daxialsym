@@ -36,25 +36,23 @@ perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
 H0 = [0 Hymag]'; % A/m
 
 %% Set up the grid (n x m 2D grid)
-xdom = linspace(-8*2*a, 8*2*a, n);
-ydom = linspace(-8*2*a, 8*2*a, m);
-dx = xdom(2)-xdom(1);
-dy = ydom(2)-ydom(1);
-[XX,YY] = meshgrid(xdom,ydom);
+n = 1200;
+m = 1200;
+sdom = linspace(-8*a, 8*a, n);
+zdom = linspace(-8*a, 8*a, m);
+ds = sdom(2)-sdom(1);
+dz = zdom(2)-zdom(1);
+[XX,YY] = meshgrid(sdom,zdom);
 
-maxit = 5000;
-tol = eps*10;
-
-syst = struct('n',n,'m',m,'a',a,'dx',dx,'dy',dy,'XX',XX,'YY',YY,...
+syst = struct('m',m,'n',n,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
               'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
-              'alpha', 10000);%0.2517);
+              'alpha', 0.2517);
 
 %% Form FV Matrix
 [A,b, perm] = setup_system_sparse(syst);
 u = A\b;
-phi = spread_1D_into_2D(u, m,n);
+phi = spread_1D_into_2D(u, n,m);
 [HX, HY] = gradient(phi,dx,dy);
-% H = -grad(phi), HX is calculated with opposite sign convention I think
 HX = -HX;
 HY = -HY;
 

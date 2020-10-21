@@ -7,15 +7,15 @@
 %% Set up parameters
 a = 1.4e-6; % Radius of sphere
 sep = 2.2*a;
-r1 = [0 0]';%-sep/2]';
-r2 = [0 0]';%sep/2]'; 
+r1 = [0 -sep/2]';
+r2 = [0 sep/2]'; 
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
                                          % permiability of free space
                                          
 susc = 0.96; % Suscepibility of material, arbitrary
 
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
-H0 = [0.0 477]'; % A/m
+H0 = [0.0 477.0]'; % A/m
 
 %% Define what stuff to plot
 four_plots = 0;
@@ -32,8 +32,8 @@ debug_force_calc = 1;
 one_sph_debug = 1;
 
 %% Set up the grid (n (x,s) x m (y,z) 2D axial grid)
-n = 700;
-m = 700;
+n = 1200;
+m = 1200;
 sdom = linspace(-8*a, 8*a, n);
 zdom = linspace(-8*a, 8*a, m);
 ds = sdom(2)-sdom(1);
@@ -46,7 +46,7 @@ syst = struct('n',n,'m',m,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
 
 %% Form FV Matrix
 fprintf('Setting up Linear System\n');
-[A,b, perm_map_debug_two_sph] = setup_system_sparse(syst);
+[A,b, perm_map_debug_two_sph,R, Rright,Rleft] = setup_system_sparse(syst);
 fprintf('Solving Linear System with \\ Operator\n');
 u = A\(b);
 fprintf('Done Solving Linear System with \\ Operator\n');
@@ -85,38 +85,25 @@ HYn=-HYn;
 %% Plotting
 % figure; pc=pcolor(squeeze(HZn(50,:,:)));set(pc,'EdgeColor','none');colorbar;
 
-figure;
-% figure; subplot(2,2,1);
+figure; subplot(1,3,1);
 absHn = sqrt(HXn.^2+HYn.^2);
 pc = pcolor(XX./a,YY./a,absHn); set(pc, 'EdgeColor', 'none');
-colorbar; title('|H|');
+colorbar; title('|H|');colormap hot;
 axis equal;
 xlim([-3 3]); ylim([-3 3]);
 
-subplot(2,2,2);
-pc = pcolor(squeeze(XX(100,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HXn(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{x}');
+subplot(1,3,2);
+pc = pcolor(XX./a,YY./a,HXn);
+set(pc, 'EdgeColor', 'none');
+colorbar; title('H_{x}');colormap hot;
 axis equal;
 xlim([-3 3]); ylim([-3 3]);
 
-subplot(2,2,3);
-pc = pcolor(squeeze(XX(100,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HYn(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{y}');
+subplot(1,3,3);
+pc = pcolor(XX./a,YY./a,HYn); set(pc, 'EdgeColor', 'none');
+colorbar; title('H_{y}'); colormap hot;
 axis equal;
 xlim([-3 3]); ylim([-3 3]);
-
-subplot(2,2,4);
-pc = pcolor(squeeze(XX(100,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HZn(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{z} ');
-axis equal;
-xlim([-3 3]); ylim([-3 3]);
-
-figure; 
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(absHn(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('|H|');
-axis equal;
-rotate(pc, [0 0 1], 90);
-xlim([-3 3]); ylim([-2 2]);
 
 
 %% Form FV Matrix and solve for just left sphere
