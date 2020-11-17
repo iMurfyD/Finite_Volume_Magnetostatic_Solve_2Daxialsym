@@ -87,6 +87,8 @@ A = spdiags([[-self_to_down(n+1:end); ynx] ...
              [ynx; -self_to_up(1:end-n)]], ...
             [-n -1 0 1 n ], m*n, m*n);
         
+perm_map_debug = perm_map_debug';
+        
 end
 
 function p = perm_at_interface(idx1, idx2, syst)

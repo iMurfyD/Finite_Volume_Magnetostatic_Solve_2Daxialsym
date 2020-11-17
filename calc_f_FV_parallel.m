@@ -18,7 +18,6 @@ function fz = calc_f_FV_parallel(sepz, Hymag, susc,a,n,m)
 %    m = number of cells used in x direction
 %        yes this is backward - thank you meshgrid
 
-
 fz = zeros(size(sepz));
 num = length(sepz);
 parfor i = 1:num

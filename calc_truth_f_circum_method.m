@@ -36,10 +36,8 @@ perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
 H0 = [0 Hymag]'; % A/m
 
 %% Set up the grid (n x m 2D grid)
-n = 1200;
-m = 1200;
-sdom = linspace(-8*a, 8*a, n);
-zdom = linspace(-8*a, 8*a, m);
+sdom = linspace(-16*a, 16*a, n);
+zdom = linspace(-16*a, 16*a, m);
 ds = sdom(2)-sdom(1);
 dz = zdom(2)-zdom(1);
 [XX,YY] = meshgrid(sdom,zdom);
@@ -51,14 +49,16 @@ syst = struct('m',m,'n',n,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
 %% Form FV Matrix
 [A,b, perm] = setup_system_sparse(syst);
 u = A\b;
-phi = spread_1D_into_2D(u, n,m);
-[HX, HY] = gradient(phi,dx,dy);
+phi = spread_1D_into_2D(u, syst);
+[HX, HY] = gradient(phi,ds,dz);
+HX(abs(HX) < 10*eps) = 0.0;
+HY(abs(HY) < 10*eps) = 0.0;
 HX = -HX;
 HY = -HY;
 
 if(debug)
     figure;
-    pc = pcolor(XX,YY,HX); set(pc, 'EdgeColor', 'none');
+    pc = pcolor(XX./a,YY./a,HX); set(pc, 'EdgeColor', 'none');
     xlim([-3 3]); ylim([-3 3]);
     title('HX');
     xlabel('X');
@@ -66,7 +66,7 @@ if(debug)
     colorbar;
     
     figure;
-    pc = pcolor(XX,YY,HY); set(pc, 'EdgeColor', 'none');
+    pc = pcolor(XX./a,YY./a,HY); set(pc, 'EdgeColor', 'none');
     xlim([-3 3]); ylim([-3 3]);
     title('HY');
     xlabel('X');
@@ -74,7 +74,7 @@ if(debug)
     colorbar;
     
     figure;
-    pc = pcolor(XX,YY,sqrt(HX.^2+HY.^2)); set(pc, 'EdgeColor', 'none');
+    pc = pcolor(XX./a,YY./a,sqrt(HX.^2+HY.^2)); set(pc, 'EdgeColor', 'none');
     xlim([-3 3]); ylim([-3 3]);
     title('|H|');
     xlabel('X');
@@ -85,16 +85,22 @@ end
 %% Formulate the maxwell stress tensor and integrate force around sphere
 f1 = [0 0]';
 f2 = [0 0]';
-[FMX, FMY] = gradient(perm,dx,dy);
+[FMX, FMY] = gradient(perm,ds,dz);
 if(debug)    
 figure; 
-pc = pcolor(XX,YY,FMX); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./a,YY./a,perm); set(pc, 'EdgeColor', 'none');
 xlim([-3 3]); ylim([-3 3]);
-title('\Nabla \mu_x');
+title('\mu');
 colorbar; 
 
 figure; 
-pc = pcolor(XX,YY,FMY); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./a,YY./a,FMX); set(pc, 'EdgeColor', 'none');
+xlim([-3 3]); ylim([-3 3]);
+title('\nabla \mu_x', 'interpreter', 'latex');
+colorbar; 
+
+figure; 
+pc = pcolor(XX./a,YY./a,FMY); set(pc, 'EdgeColor', 'none');
 hold on; % Don't let plot blow away the image.
 theta = 0 : 0.01 : 2*pi;
 radius = a;
@@ -107,7 +113,7 @@ xx = radius * cos(theta) + r2(1);
 yy = radius * sin(theta) + r2(2);
 plot(xx, yy, 'r-', 'LineWidth', 1);
 xlim([-3 3]); ylim([-3 3]);
-title('\Nabla \mu_y');
+title('\nabla \mu_y');
 colorbar;
 end
 
@@ -116,13 +122,13 @@ FMY = -0.5*(HX.^2+HY.^2).*FMY;
 
 if(debug)    
 figure; 
-pc = pcolor(XX,YY,FMX); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./a,YY./a,FMX); set(pc, 'EdgeColor', 'none');
 xlim([-3 3]); ylim([-3 3]);
 title('FMX');
 colorbar; 
 
 figure; 
-pc = pcolor(XX,YY,FMY); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./a,YY./a,FMY); set(pc, 'EdgeColor', 'none');
 hold on; % Don't let plot blow away the image.
 theta = 0 : 0.01 : 2*pi;
 radius = a;
@@ -144,52 +150,19 @@ if(debug)
     fprintf('a = %g\n', a);
     fprintf('H0 = %g\n', Hymag);
     fprintf('susc = %g\n', susc);
-    fprintf('n = %g\n', length(xdom));
-    fprintf('m = %g\n', length(ydom));
+    fprintf('n = %g\n', length(sdom));
+    fprintf('m = %g\n', length(zdom));
 end
 
 % border_threshold = sqrt(dx^2+dy^2);
-c_map = zeros(size(XX));
-fx_per_vol_dV = zeros(size(XX));
-fy_per_vol_dV = zeros(size(XX));
-test_fV = 1/((4/3)*pi*a^3);
-% fprintf('test_FV = %g \n', test_fV);
-for ii = 1:m
-    for jj = 1:n
-        if(YY(ii,jj) < 0) % r1
-%             if(norm([XX(ii,jj) YY(ii,jj)]'-r1)<=a)
-            if(abs(XX(ii,jj)) <= mean([dx dy]))
-                circum = 2*pi*mean([dx dy]);
-            else
-                circum = 2*pi*abs(XX(ii,jj))/2;
-            end
-            c_map(ii,jj) = circum;
-%             f_per_vol_dV = [0 test_fV]'*dx*dy*abs(circum);
-            f_per_vol_dV = [FMX(ii,jj) FMY(ii,jj)]'*dx*dy*abs(circum);
-            fx_per_vol_dV(ii,jj) = f_per_vol_dV(1);
-            fy_per_vol_dV(ii,jj) = f_per_vol_dV(2);  
-            f1 = f1 + f_per_vol_dV;
-%             end
-        else % r2
-%             if(norm([XX(ii,jj) YY(ii,jj)]'-r2)<=a)
-            if(abs(XX(ii,jj)) <= mean([dx dy]))
-                circum = 2*pi*mean([dx dy]);
-            else
-                circum = 2*pi*abs(XX(ii,jj))/2;
-            end
-            c_map(ii,jj) = circum;
-            f_per_vol_dV = [FMX(ii,jj) FMY(ii,jj)]'*dx*dy*abs(circum);
-%             f_per_vol_dV = [0 test_fV]'*dx*dy*abs(circum);
-            fx_per_vol_dV(ii,jj) = f_per_vol_dV(1);
-            fy_per_vol_dV(ii,jj) = f_per_vol_dV(2);  
-            f2 = f2 + f_per_vol_dV;
-%             end
-        end
-       
-    end
-end
-    
-fmag = f1(2);
+[~,topidx] = min(abs(YY(:,1)-(r1(2)+a+3*dz)));
+[~,botidx] = min(abs(YY(:,1)-(r1(2)-a-3*dz)));
+circum = pi*abs(XX);
+FMYrefined = interp2(XX,YY,FMY,XX,YY,'linear');
+fy_per_vol_dV = FMYrefined.*circum;
+
+addpath('./simps');
+fmag = simps(zdom(botidx:topidx),simps(sdom,fy_per_vol_dV(botidx:topidx,:),2),1);
 
 if(debug)
 fprintf('mean c = %g\n', mean(circum,'all'));
@@ -197,7 +170,7 @@ fprintf('mean c/(2*pi) = %g\n', mean(circum,'all')/(2*pi));
 
 
 figure; 
-pc = pcolor(XX,YY,c_map); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./a,YY./a,c_map); set(pc, 'EdgeColor', 'none');
 hold on; % Don't let plot blow away the image.
 theta = 0 : 0.01 : 2*pi;
 radius = a;
@@ -215,13 +188,13 @@ colorbar;
 caxis([0 pi*a]);
 
 figure; 
-pc = pcolor(XX,YY,fx_per_vol_dV); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./a,YY./a,fx_per_vol_dV); set(pc, 'EdgeColor', 'none');
 xlim([-3 3]); ylim([-3 3]);
 title('fx_per_vol');
 colorbar; 
 
 figure; 
-pc = pcolor(XX,YY,fy_per_vol_dV); set(pc, 'EdgeColor', 'none');
+pc = pcolor(XX./a,YY./a,fy_per_vol_dV); set(pc, 'EdgeColor', 'none');
 hold on; % Don't let plot blow away the image.
 theta = 0 : 0.01 : 2*pi;
 radius = a;
