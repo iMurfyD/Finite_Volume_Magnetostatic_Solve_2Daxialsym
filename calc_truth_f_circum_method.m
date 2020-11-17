@@ -161,8 +161,7 @@ circum = pi*abs(XX);
 FMYrefined = interp2(XX,YY,FMY,XX,YY,'linear');
 fy_per_vol_dV = FMYrefined.*circum;
 
-addpath('./simps');
-fmag = simps(zdom(botidx:topidx),simps(sdom,fy_per_vol_dV(botidx:topidx,:),2),1);
+fmag = trapz(zdom(botidx:topidx),trapz(sdom,fy_per_vol_dV(botidx:topidx,:),2),1);
 
 if(debug)
 fprintf('mean c = %g\n', mean(circum,'all'));
