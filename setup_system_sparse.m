@@ -1,4 +1,4 @@
-function [A,b, perm_map_debug,Rm,Rrightm,Rleftm] = setup_system_sparse(syst)
+function [A,b,perm_map_debug] = setup_system_sparse(syst)
 %Given grid information and location of spheres, creates
 %linear system to solve for current free magnetic potential at each node
 m = syst.m;
@@ -9,10 +9,7 @@ dz = syst.dz;
 H0 = syst.H0;
 
 b = zeros(n*m, 1);
-perm_map_debug = zeros(size(syst.XX));
-Rm = zeros(size(syst.XX));
-Rrightm = zeros(size(syst.XX));
-Rleftm = zeros(size(syst.XX));
+perm_map_debug = zeros(n*m,1);
 self_to_self = zeros(n*m, 1);
 self_to_right = zeros(n*m, 1);
 self_to_up = zeros(n*m, 1);
@@ -20,13 +17,26 @@ self_to_down = zeros(n*m, 1);
 self_to_left = zeros(n*m, 1);
 
 parfor idx = 1:syst.n*syst.m % index
-    [i, j] = indexfinv(i);
+    [i, j] = indexfinv(idx, syst);
     x = syst.XX(j,i);
     above = indexf(i,j+1,syst);
     below = indexf(i,j-1,syst);
     left = indexf(i-1,j,syst);
     right = indexf(i+1,j,syst);
-%     perm_map_debug(i,j) = perm_smoothidx(idx,syst);   
+    perm_map_debug(idx) = perm_smoothidx(idx,syst);   
+    R = abs(x);
+    if(x>ds)
+        Rright = R-ds/2;
+        Rleft = R+ds/2;
+    elseif(R <= ds) % Prevents singularity
+        Rright = ds;
+        Rleft = ds;
+        R = ds;
+    else
+        Rright = R+ds/2;
+        Rleft = R-ds/2;
+    end
+
     
     % X direction fluxes
     if(i == 1) % Touching the left face
@@ -69,7 +79,7 @@ A = spdiags([[-self_to_down(n+1:end); ynx] ...
              [ynx; -self_to_up(1:end-n)]], ...
             [-n -1 0 1 n ], m*n, m*n);
         
-perm_map_debug = perm_map_debug';
+% perm_map_debug = perm_map_debug';
         
 end
 

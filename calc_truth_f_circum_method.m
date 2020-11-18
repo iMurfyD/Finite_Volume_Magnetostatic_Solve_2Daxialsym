@@ -47,9 +47,10 @@ syst = struct('m',m,'n',n,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
               'alpha', 0.2517);
 
 %% Form FV Matrix
-[A,b, perm] = setup_system_sparse(syst);
+[A,b, permmdbg] = setup_system_sparse(syst);
 u = A\b;
 phi = spread_1D_into_2D(u, syst);
+perm = spread_1D_into_2D(permmdbg, syst);
 [HX, HY] = gradient(phi,ds,dz);
 HX(abs(HX) < 10*eps) = 0.0;
 HY(abs(HY) < 10*eps) = 0.0;
