@@ -19,31 +19,14 @@ self_to_up = zeros(n*m, 1);
 self_to_down = zeros(n*m, 1);
 self_to_left = zeros(n*m, 1);
 
-for j = 1:m % Y-coordinate
-for i = 1:n % X-coordinate
+parfor idx = 1:syst.n*syst.m % index
+    [i, j] = indexfinv(i);
     x = syst.XX(j,i);
-    idx = indexf(i,j,syst); % Ordering of nodes in 1D
     above = indexf(i,j+1,syst);
     below = indexf(i,j-1,syst);
     left = indexf(i-1,j,syst);
     right = indexf(i+1,j,syst);
-    perm_map_debug(i,j) = perm_smoothidx(idx,syst);
-    R = abs(x);
-    Rm(i,j) = R;
-    if(x>ds)
-        Rright = R-ds/2;
-        Rleft = R+ds/2;
-    elseif(R <= ds) % Prevents singularity
-        Rright = ds;
-        Rleft = ds;
-        R = ds;
-    else
-        Rright = R+ds/2;
-        Rleft = R-ds/2;
-    end
-    Rrightm(i,j) = Rright;
-    Rleftm(i,j) = Rleft;
-   
+%     perm_map_debug(i,j) = perm_smoothidx(idx,syst);   
     
     % X direction fluxes
     if(i == 1) % Touching the left face
@@ -72,7 +55,6 @@ for i = 1:n % X-coordinate
     self_to_self(idx) = self_to_up(idx) + self_to_down(idx)+...
                         self_to_left(idx) + self_to_right(idx);
 
-end
 end
 
 b = -b; % Needs to swap sign convention with self_to_self being postitive
