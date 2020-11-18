@@ -20,6 +20,7 @@ function fmag = calc_truth_f_circum_method(sep, Hymag, susc,a,n,m)
 %        yes this is backward thank you meshgrid
 
 debug = 0;
+diagnostic = 1;
 
 if(Hymag == 0.0) 
     error('Need to apply a field');
@@ -35,6 +36,10 @@ perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
 H0 = [0 Hymag]'; % A/m
 
+if(diagnostic)
+fprintf('Allocating space for grid at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
+
 %% Set up the grid (n x m 2D grid)
 sdom = linspace(-16*a, 16*a, n);
 zdom = linspace(-16*a, 16*a, m);
@@ -45,17 +50,34 @@ dz = zdom(2)-zdom(1);
 syst = struct('m',m,'n',n,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
               'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
               'alpha', 0.2517);
+if(diagnostic)
+fprintf('Finished allocating space for grid at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 
 %% Form FV Matrix
+if(diagnostic)
+fprintf('Creating connectivity matrix at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 [A,b, permmdbg] = setup_system_sparse(syst);
+if(diagnostic)
+fprintf('Finished creating connectivity matrix at %s\n', datestr(now,'HH:MM:SS.FFF'));
+fprintf('Solving for scalar potential at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 u = A\b;
 phi = spread_1D_into_2D(u, syst);
 perm = spread_1D_into_2D(permmdbg, syst);
+if(diagnostic)
+fprintf('Finished scalar potential at %s\n', datestr(now,'HH:MM:SS.FFF'));
+fprintf('Solving for field at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 [HX, HY] = gradient(phi,ds,dz);
 HX(abs(HX) < 10*eps) = 0.0;
 HY(abs(HY) < 10*eps) = 0.0;
 HX = -HX;
 HY = -HY;
+if(diagnostic)
+fprintf('Finished field at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 
 if(debug)
     figure;
@@ -84,6 +106,9 @@ if(debug)
 end
     
 %% Formulate the maxwell stress tensor and integrate force around sphere
+if(diagnostic)
+fprintf('Creating Maxwell stress tensor at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 f1 = [0 0]';
 f2 = [0 0]';
 [FMX, FMY] = gradient(perm,ds,dz);
@@ -120,7 +145,9 @@ end
 
 FMX = -0.5*(HX.^2+HY.^2).*FMX;
 FMY = -0.5*(HX.^2+HY.^2).*FMY;
-
+if(diagnostic)
+fprintf('Finished creating Maxwell stress tensor at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 if(debug)    
 figure; 
 pc = pcolor(XX./a,YY./a,FMX); set(pc, 'EdgeColor', 'none');
@@ -156,6 +183,9 @@ if(debug)
 end
 
 % border_threshold = sqrt(dx^2+dy^2);
+if(diagnostic)
+fprintf('Integrating force at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 [~,topidx] = min(abs(YY(:,1)-(r1(2)+a+3*dz)));
 [~,botidx] = min(abs(YY(:,1)-(r1(2)-a-3*dz)));
 circum = pi*abs(XX);
@@ -163,6 +193,10 @@ FMYrefined = interp2(XX,YY,FMY,XX,YY,'linear');
 fy_per_vol_dV = FMYrefined.*circum;
 
 fmag = trapz(zdom(botidx:topidx),trapz(sdom,fy_per_vol_dV(botidx:topidx,:),2),1);
+
+if(diagnostic)
+fprintf('Finsihed integrating force at %s\n', datestr(now,'HH:MM:SS.FFF'));
+end
 
 if(debug)
 fprintf('mean c = %g\n', mean(circum,'all'));
