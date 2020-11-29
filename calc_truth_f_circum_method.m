@@ -188,11 +188,31 @@ fprintf('Integrating force at %s\n', datestr(now,'HH:MM:SS.FFF'));
 end
 [~,topidx] = min(abs(YY(:,1)-(r1(2)+a+3*dz)));
 [~,botidx] = min(abs(YY(:,1)-(r1(2)-a-3*dz)));
-circum = pi*abs(XX);
-FMYrefined = interp2(XX,YY,FMY,XX,YY,'linear');
-fy_per_vol_dV = FMYrefined.*circum;
 
-fmag = trapz(zdom(botidx:topidx),trapz(sdom,fy_per_vol_dV(botidx:topidx,:),2),1);
+
+
+circum = pi*abs(XX());
+fy_per_vol_dV = FMY.*circum;
+
+% Convert to polar coordinates centered around the test sphere
+% Only uses subdomain ([-16a 16a] X, [botidx topidx] Y)
+[~,RR] = cart2pol(XX(botidx:topidx,:)-r1(1),YY(botidx:topidx,:)-r1(2));
+fy_per_vol_dV_sd = fy_per_vol_dV(botidx:topidx,:); % slice of FMY in subdomain of interest
+num_nonzeros_total = nnz(fy_per_vol_dV_sd);
+num_nonzeros_midrow = nnz(fy_per_vol_dV_sd(round((topidx-botidx)/4),:));
+dt = (2*pi)/(num_nonzeros_total/(num_nonzeros_midrow/2));
+dr = (RR(2,2) - RR(2,3))*sqrt(2);
+
+fmag = 0;
+for j = 1:(topidx-botidx)
+    for i = 1:n
+%         if FF(i,j) ~= 0
+%             fprintf('neq\n');
+%         end
+% %         circ_val(i,j) = FF(i,j)*abs(RR(i,j))*dr*dt;
+        fmag = fmag + fy_per_vol_dV_sd(j,i)*abs(RR(j,i))*dr*dt;
+    end
+end
 
 if(diagnostic)
 fprintf('Finsihed integrating force at %s\n', datestr(now,'HH:MM:SS.FFF'));
