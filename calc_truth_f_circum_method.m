@@ -29,8 +29,8 @@ end
 %% Set up parameters
 % a = 1.4e-6; % Radius of sphere
 sep = sep*a; % Unnormalize it
-r1 = [0 -sep/2]';
-r2 = [0 sep/2]';
+r1 = [0 0]';
+r2 = [0 sep]';
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
                                          % permiability of free space
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
@@ -186,33 +186,22 @@ end
 if(diagnostic)
 fprintf('Integrating force at %s\n', datestr(now,'HH:MM:SS.FFF'));
 end
-[~,topidx] = min(abs(YY(:,1)-(r1(2)+a+3*dz)));
-[~,botidx] = min(abs(YY(:,1)-(r1(2)-a-3*dz)));
 
-
+npolar = round(a/dz)*2;
+rdom = linspace(0, r1(2)+a+3*dz, npolar);
+dr = rdom(2)-rdom(1);
+tdom = linspace(0, 2*pi, npolar);
+dt = tdom(2)-tdom(1);
+[THETA, R] = meshgrid(tdom ,rdom);
+[Xpol, Ypol] = pol2cart (THETA, R);
+FMYpol = interp2(XX,YY,FMY,Xpol,Ypol);
 
 circum = pi*abs(XX());
-fy_per_vol_dV = FMY.*circum;
+circumpol = interp2(XX,YY,circum,Xpol,Ypol);
+fy_per_vol_dV = FMYpol.*circumpol;
 
-% Convert to polar coordinates centered around the test sphere
-% Only uses subdomain ([-16a 16a] X, [botidx topidx] Y)
-[~,RR] = cart2pol(XX(botidx:topidx,:)-r1(1),YY(botidx:topidx,:)-r1(2));
-fy_per_vol_dV_sd = fy_per_vol_dV(botidx:topidx,:); % slice of FMY in subdomain of interest
-num_nonzeros_total = nnz(fy_per_vol_dV_sd);
-num_nonzeros_midrow = nnz(fy_per_vol_dV_sd(round((topidx-botidx)/4),:));
-dt = (2*pi)/(num_nonzeros_total/(num_nonzeros_midrow/2));
-dr = (RR(2,2) - RR(2,3))*sqrt(2);
+fmag = sum(sum(dt*dr.*R.*fy_per_vol_dV));
 
-fmag = 0;
-for j = 1:(topidx-botidx)
-    for i = 1:n
-%         if FF(i,j) ~= 0
-%             fprintf('neq\n');
-%         end
-% %         circ_val(i,j) = FF(i,j)*abs(RR(i,j))*dr*dt;
-        fmag = fmag + fy_per_vol_dV_sd(j,i)*abs(RR(j,i))*dr*dt;
-    end
-end
 
 if(diagnostic)
 fprintf('Finsihed integrating force at %s\n', datestr(now,'HH:MM:SS.FFF'));
