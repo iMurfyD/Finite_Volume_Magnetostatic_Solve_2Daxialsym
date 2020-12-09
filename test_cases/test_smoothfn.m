@@ -1,5 +1,5 @@
-
- clear all; close all; clc;
+clear all; close all; clc;
+addpath('../solver/');
 
 %% Set up parameters
 a = 1.4e-6; % Radius of sphere
@@ -17,11 +17,11 @@ n = 2000;
 m = 2000;
 xdom = linspace(-20*a, 20*a, n);
 ydom = linspace(-20*a, 20*a, m);
-dx = xdom(2)-xdom(1);
-dy = ydom(2)-ydom(1);
+ds = xdom(2)-xdom(1);
+dz = ydom(2)-ydom(1);
 [XX,YY] = meshgrid(xdom,ydom);
 
-syst = struct('n',n,'m',m,'a',a,'dx',dx,'dy',dy,'XX',XX,'YY',YY,...
+syst = struct('n',n,'m',m,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
               'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
               'alpha', 10000);%0.2517);
           

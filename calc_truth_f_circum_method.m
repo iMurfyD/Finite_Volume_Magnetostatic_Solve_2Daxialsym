@@ -58,7 +58,7 @@ end
 if(diagnostic)
 fprintf('Creating connectivity matrix at %s\n', datestr(now,'HH:MM:SS.FFF'));
 end
-[A,b, permmdbg] = setup_system_sparse(syst);
+[A,b, permmdbg] = setup_system(syst);
 if(diagnostic)
 fprintf('Finished creating connectivity matrix at %s\n', datestr(now,'HH:MM:SS.FFF'));
 fprintf('Solving for scalar potential at %s\n', datestr(now,'HH:MM:SS.FFF'));

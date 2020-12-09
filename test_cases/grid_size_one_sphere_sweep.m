@@ -1,4 +1,5 @@
 clear all; clc;
+addpath('../solver/');
 
 %% Set up parameters
 a = 1.4e-6; % Radius of sphere
@@ -28,15 +29,15 @@ m = gsizes(gridi);
 xdom = linspace(-16*a, 16*a, n);
 ydom = linspace(-16*a, 16*a, m);
 
-dx = xdom(2)-xdom(1);
-dy = ydom(2)-ydom(1);
+ds = xdom(2)-xdom(1);
+dz = ydom(2)-ydom(1);
 [XX,YY] = meshgrid(xdom,ydom);
 
-syst = struct('n',n,'m',m,'a',a,'dx',dx,'dy',dy,'XX',XX,'YY',YY,...
-              'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,...
-              'alpha', alpha);
+syst = struct('m',m,'n',n,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
+              'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
+              'alpha', 0.2517);
 
-[A,b, perm_map_debug_two_sph] = setup_system_sparse(syst);
+[A,b, perm_map_debug_two_sph] = setup_system(syst);
 
 phi_theoretical = zeros(size(XX));
 u_theoretical = zeros(n*m,1);

@@ -1,4 +1,5 @@
 clear all; clc;
+addpath('../solver/');
 
 %% Set up parameters
 a = 1.4e-6; % Radius of sphere
@@ -30,7 +31,7 @@ syst = struct('m',m,'n',n,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
               'r1',r1,'r2',r2,'perm',perm,'pfs',perm_free_space,'H0',H0,....
               'alpha', alphi);
 
-[A,b, perm_map_debug_two_sph] = setup_system_sparse(syst);
+[A,b, perm_map_debug_two_sph] = setup_system(syst);
 
 phi_theoretical = zeros(size(XX));
 u_theoretical = zeros(n*m,1);

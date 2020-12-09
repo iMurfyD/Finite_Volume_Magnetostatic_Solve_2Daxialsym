@@ -2,7 +2,8 @@
 % Ian DesJardin
 % August 2020
 
- clear all; close all; clc;
+clear all; close all; clc;
+addpath('../solver/');
 
 %% Set up parameters
 a = 1.4e-6; % Radius of sphere
@@ -46,24 +47,12 @@ syst = struct('m',m,'n',n,'a',a,'ds',ds,'dz',dz,'XX',XX,'YY',YY,...
 
 %% Form FV Matrix
 fprintf('Setting up Linear System\n');
-[A,b, perm_map_debug_two_sph,~,~,~] = setup_system_sparse(syst);
+[A,b, perm_map_debug_two_sph] = setup_system(syst);
 fprintf('Solving Linear System with \\ Operator\n');
 u = A\(b);
 fprintf('Done Solving Linear System with \\ Operator\n');
 
-% 
-% fprintf('Computing Initial Solution Guess for PCG\n');
-% % init_guess = repelem((-ydom'*H0(3)),l*m);
-% fprintf('Done Computing Initial Solution Guess for PCG\n');
-% fprintf('Computing Cholesky Preconditioners for PCG\n');
-% L = ichol(A);
-% fprintf('Done Computing Cholesky Preconditioners for PCG\n');
-% tol = 1e-12;
-% fprintf('Solving Linear System with PCG Method to %g tolerance\n',tol);
-% [u_numeric, flag,relres,iter,resvec] = pcg(A,b,tol,2000,L,L');
-% fprintf('Done Solving with PCG Method\n');
 phi = spread_1D_into_2D(u,syst);
-% phi_numeric = spread_1D_into_3D(u_numeric,syst);
 
 if(spy_mat)
 figure;
@@ -112,9 +101,6 @@ HXn=-HXn;
 HYn=-HYn;
 
 %% Plotting
-% figure; pc=pcolor(squeeze(HZn(50,:,:)));set(pc,'EdgeColor','none');colorbar;
-
-
 figure; subplot(1,3,1);
 absHn = sqrt(HXn.^2+HYn.^2);
 absHt = sqrt(HXt.^2+HYt.^2);
@@ -136,6 +122,22 @@ colorbar; title('log_{10}(|\Delta H_{y}|)');
 axis equal;
 xlim([-2 2]); ylim([-2 2]);
 
+figure;subplot(1,3,1);
+pc = pcolor(XX./a,YY./a,absHn); set(pc, 'EdgeColor', 'none');
+colorbar; title('|H| Calculated');
+axis equal;
+xlim([-2 2]); ylim([-2 2]);
+subplot(1,3,2);
+pc = pcolor(XX./a,YY./a,HXn); set(pc, 'EdgeColor', 'none');
+colorbar; title('H_{x} Calculated');
+axis equal;
+xlim([-2 2]); ylim([-2 2]);
+subplot(1,3,3);
+pc = pcolor(XX./a,YY./a,HYn); set(pc, 'EdgeColor', 'none');
+colorbar; title('H_{y} Calculated');
+axis equal;
+xlim([-2 2]); ylim([-2 2]);
+
 figure; subplot(1,3,1);
 absHn = sqrt(HXn.^2+HYn.^2);
 absHt = sqrt(HXt.^2+HYt.^2);
@@ -154,67 +156,6 @@ subplot(1,3,3);
 pc = pcolor(XX./a,YY./a, HYn-HYt); 
 set(pc, 'EdgeColor', 'none');
 colorbar; title('\Delta H_{y}');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-figure; subplot(1,3,1);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HXn(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{xn} Calculated');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(1,3,2);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HXt(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{xt} Theoretical');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(1,3,3);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a, (squeeze(HXn(50,:,:))-squeeze(HXt(50,:,:)))); 
-set(pc, 'EdgeColor', 'none');
-
-colorbar; title(' H_{xn} - H_{xt}');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-
-figure; subplot(1,3,1);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HYn(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{yn} Calculated');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(1,3,2);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HYt(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{yt} Theoretical');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(1,3,3);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a, (squeeze(HYn(50,:,:))-squeeze(HYt(50,:,:)))); 
-set(pc, 'EdgeColor', 'none');
-
-colorbar; title('H_{yn} - H_{yt}');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-figure; subplot(1,3,1);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HZn(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{zn} Calculated');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(1,3,2);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a,squeeze(HZt(50,:,:))); set(pc, 'EdgeColor', 'none');
-colorbar; title('H_{zt} Theoretical');
-axis equal;
-xlim([-2 2]); ylim([-2 2]);
-
-subplot(1,3,3);
-pc = pcolor(squeeze(XX(50,:,:))./a,squeeze(ZZ(50,:,:))./a, (squeeze(HZn(50,:,:))-squeeze(HZt(50,:,:)))); 
-set(pc, 'EdgeColor', 'none');
-
-colorbar; title(' H_{zn} - H_{zt}');
 axis equal;
 xlim([-2 2]); ylim([-2 2]);
 
