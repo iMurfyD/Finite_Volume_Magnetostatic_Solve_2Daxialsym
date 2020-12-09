@@ -1,4 +1,4 @@
-function fmag = calc_truth_f_circum_method(sep, Hymag, susc,a,n,m)
+function fmag = calc_f_two_grain(sep, Hymag, susc,a,n,m)
 %calc_truth_f Calculates force around sphere in two sphere problem
 %    Solves for H field around sphere and integrates
 %    div Maxwell stress tensor through volume of sphere
