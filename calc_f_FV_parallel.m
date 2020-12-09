@@ -21,7 +21,7 @@ function fz = calc_f_FV_parallel(sepz, Hymag, susc,a,n,m)
 fz = zeros(size(sepz));
 num = length(sepz);
 parfor i = 1:num
-    fz(i) = calc_truth_f_circum_method(sepz(i), Hymag, susc, a,n,m);
+    fz(i) = calc_f_two_grain(sepz(i), Hymag, susc, a,n,m);
 end
 end
 

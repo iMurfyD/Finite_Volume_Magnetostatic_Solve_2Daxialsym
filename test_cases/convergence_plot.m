@@ -13,8 +13,8 @@ a = 1.4e-6;
 
 
 for i = 1:length(nmz)
-    fv_nmz_sol(i,:) = calc_truth_f_circum_method(sep, H0, susc, ...
-                                               a, nmz(i), nmz(i));
+    fv_nmz_sol(i,:) = calc_f_two_grain(sep, H0, susc, ...
+                                       a, nmz(i), nmz(i));
 end
 
 figure;
