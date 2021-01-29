@@ -19,12 +19,16 @@ self_to_left = zeros(n*m, 1);
 parfor idx = 1:syst.n*syst.m % index
     [i, j] = indexfinv(idx, syst);
     x = syst.XX(j,i);
+    
+    % Find indicies of neighbor volume elements 
     above = indexf(i,j+1,syst);
     below = indexf(i,j-1,syst);
     left = indexf(i-1,j,syst);
     right = indexf(i+1,j,syst);
     perm_map_debug(idx) = perm_smoothidx(idx,syst);   
     R = abs(x);
+    
+    % Sets "R" the radius in a cylindrical coordinate system
     if(x>ds)
         Rright = R-ds/2;
         Rleft = R+ds/2;
@@ -72,6 +76,9 @@ b = -b; % Needs to swap sign convention with self_to_self being postitive
 ynx = zeros(n,1);
 
 
+% Constructs tridiagonal sparse system matrix
+% Each element in the vector passed to spdiages is a diagonal
+% Done to save memory and make conputation feasible
 A = spdiags([[-self_to_down(n+1:end); ynx] ...
              [-self_to_left(2:end); 0] ...
              self_to_self ...

@@ -5,7 +5,7 @@ function fz = calc_f_FV_parallel(sepz, Hymag, susc,a,n,m)
 %    input parameters. Relies on MATLAB local profile being
 %    setup to use multiples cores on your machine. For an
 %    educational copy of MATLAB 2020a, I had to change this
-%    manually
+%    manually. REQUIRES PARALLEL TOOLBOX
 %
 %    sepz = vector of normalized separations (r/a)
 %           where r = center to center distance between spheres
