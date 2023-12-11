@@ -8,7 +8,7 @@ sep = 2.2;   % Center to center grain separation distance, normalized to a
 H0 = 477.0;  % Applied magnetic field, A/m
 susc = 0.96; % Magnetic susceptibility
 a = 1.4e-6;  % Grain radius, meters
-n = 1000;    % Grid size
+n = 100;    % Grid size
 
 %% Sets up a two grain finite volume simulation, and then uses a
 %  cartesian -> polar interpolation scheme to integrate the Maxwell

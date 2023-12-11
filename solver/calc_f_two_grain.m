@@ -19,8 +19,8 @@ function fmag = calc_f_two_grain(sep, Hymag, susc,a,n,m)
 %    m = number of cells used in x direction
 %        yes this is backward thank you meshgrid
 
-debug = 0;
-diagnostic = 1;
+debug = 1;
+diagnostic = 0;
 
 if(Hymag == 0.0) 
     error('Need to apply a field');
@@ -63,7 +63,13 @@ if(diagnostic)
 fprintf('Finished creating connectivity matrix at %s\n', datestr(now,'HH:MM:SS.FFF'));
 fprintf('Solving for scalar potential at %s\n', datestr(now,'HH:MM:SS.FFF'));
 end
-u = A\b;
+tic;
+%[U,D,V] = LOCAL_rsvd(A,10,2);
+%Ainv = V*inv(D)*U';
+%u = Ainv*b; % 
+u = mldivide_rsvd(A,b);
+% u = A\b;
+toc
 phi = spread_1D_into_2D(u, syst);
 perm = spread_1D_into_2D(permmdbg, syst);
 if(diagnostic)
