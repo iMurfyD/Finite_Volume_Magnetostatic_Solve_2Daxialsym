@@ -16,15 +16,17 @@ perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1
 susc = 0.96; % Suscepibility of material, arbitrary
 
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
-H0 = [0.0 477]'; % A/m
+Hmag = 477;
+thta = 90;
+H0 = [Hmag*sind(thta) Hmag*cosd(thta)]'; % A/m
 
 %% Define what stuff to plot
-four_plots = 0;
+four_plots = 1;
 interp_match_du_paper = 1   ;
 perm_map_debug=1;
 spy_mat = 0;
 hy_trifold = 1;
-hx_trifold = 0;
+hx_trifold = 1;
 hx_trifold_no_normalization =0;
 hy_trifold_no_normalization=0;
 phi_trifold=0;

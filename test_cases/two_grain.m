@@ -6,35 +6,36 @@ clear all; close all; clc;
 addpath('../solver/');
  
 %% Set up parameters
-a = 1.4e-6; % Radius of sphere
-sep = 2.2*a;
+a = 1.0e-2; % Radius of sphere, meters
+sep = 2.005*a;
 r1 = [0 -sep/2]';
 r2 = [0 sep/2]'; 
 perm_free_space = 4*pi*1.00000000082e-7; % H*m^-1 
                                          % permiability of free space
                                          
-susc = 0.96; % Suscepibility of material, arbitrary
+susc = 5000; % Suscepibility of material, arbitrary
 
 perm = perm_free_space*(1+susc); % Linear media, eqn 6.30 Griffiths
-H0 = [0.0 477.0]'; % A/m
+H0 = [0.0 2000e-9/perm_free_space]'; % A/m
 
 %% Define what stuff to plot
 four_plots = 0;
-interp_match_du_paper = 1   ;
+interp_match_du_paper = 0  ;
 perm_map_debug=1;
 spy_mat = 0;
-hy_trifold = 1;
+hy_trifold = 0;
 hx_trifold = 0;
 hx_trifold_no_normalization =0;
 hy_trifold_no_normalization=0;
 phi_trifold=0;
-hmag=1;
-debug_force_calc = 1;  
-one_sph_debug = 1;
+hmag=0;
+debug_force_calc = 0;  
+one_sph_debug = 0;
+for_paper = 1;
 
 %% Set up the grid (n (x,s) x m (y,z) 2D axial grid)
-n = 1200;
-m = 1200;
+n = 6000;
+m = 6000;
 sdom = linspace(-8*a, 8*a, n);
 zdom = linspace(-8*a, 8*a, m);
 ds = sdom(2)-sdom(1);
@@ -283,6 +284,8 @@ xlabel('x/a');
 colorbar;
 end
 
+
+
 %% Hmag
 if(hmag)
     absHXHY = sqrt(HXn.^2+HYn.^2);
@@ -325,6 +328,32 @@ xlabel('x/D');
 % rotate(pc, [0 0 1]', 90);
 colorbar; colormap('hot');
 % caxis([350 max(sqrt(HX_right.^2+HY_right.^2),[],'all')]);
+end
+
+if(for_paper)
+    absHXHY = sqrt(HXn.^2+HYn.^2);
+
+    figure;
+    pc = pcolor(XX/(2*a),YY/(2*a),absHXHY); 
+    set(pc, 'EdgeColor', 'none');
+    title('|H| (Two Grains)');
+    ylabel('z/D');
+    xlabel('s/D');
+    colorbar; colormap('hot');
+    axis equal;
+    xlim([-2 2]);
+    ylim([-2 2]);
+    
+    figure;
+    pc = pcolor(XX/(2*a),YY/(2*a),perm_map_debug_two_sph/perm_free_space); 
+    set(pc, 'EdgeColor', 'none');
+    title('\mu/\mu_0 (Two Grains)');
+    ylabel('z/D');
+    xlabel('s/D');
+    axis equal;
+    xlim([-2 2]);
+    ylim([-2 2]);
+    colorbar;
 end
 
 %% HX Trifold
